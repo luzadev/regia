@@ -4,8 +4,8 @@ Software per lo studio con 7 poltrone ospiti: le poltrone chiedono la parola da 
 la regia vede la coda e autorizza, il server commuta il feed video verso il mixer e accende
 le luci della postazione.
 
-Stato: **M1 e M2 completate** (core loop + percorso video WebRTC in casa). M3 (luci WLED/relè)
-e M4 (endpoint Stream Deck, pagina `/log`, deploy) non sono ancora implementate.
+Stato: **M1, M2 e M3 completate** (core loop, percorso video WebRTC in casa, luci e relè).
+M4 (endpoint Stream Deck, pagina `/log`, deploy) non è ancora implementata.
 
 Il video e l'audio delle poltrone viaggiano in **WebRTC**, senza software di terze parti:
 la pagina poltrona pubblica webcam e microfono, la pagina `/feed/` li mostra a schermo intero
@@ -42,7 +42,10 @@ Il server stampa gli indirizzi utili all'avvio:
 | `webrtc_ready_timeout_ms` | quanto attendere la conferma della pagina `/feed/` (5 s) |
 | `webrtc_constraints` | risoluzione, frame rate e trattamento audio richiesti alla webcam |
 | `webrtc_max_bitrate_kbps` | tetto di bitrate video (4000 = 4 Mbit/s), per partire subito alla risoluzione piena |
-| `lights_driver` / `relay_driver` | `mock` per ora; `wled`, `shelly` da M3 |
+| `lights_driver` | `mock` oppure `wled` |
+| `relay_driver` | `mock` oppure `shelly` |
+| `wled_url`, `wled_effects` | indirizzo del controller e id degli effetti (`solid`, `blink`) |
+| `relay_on_url`, `relay_off_url` | chiamate di accensione e spegnimento, con segnaposto `{url}` |
 | `driver_timeout_ms` | timeout di ogni chiamata ai driver (default 1500 ms) |
 | `heartbeat_interval_ms` | cadenza dell'heartbeat verso i client (2 s) |
 | `station_offline_timeout_ms` | oltre questo silenzio la poltrona è OFFLINE (6 s) |
@@ -329,6 +332,55 @@ modifica all'HTML:
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new ^
   --no-pdf-header-footer --print-to-pdf="docs\roadmap.pdf" "file:///.../docs/roadmap.html"
 ```
+
+## Luci e relè (M3)
+
+```json
+"lights_driver": "wled",
+"relay_driver": "shelly",
+"wled_url": "http://192.168.10.31",
+"wled_effects": { "solid": 0, "blink": 1 },
+"relay_on_url": "{url}?turn=on",
+"relay_off_url": "{url}?turn=off"
+```
+
+Un solo controller WLED serve tutte le poltrone: ognuna ha il suo **segmento**
+(`stations[].wled_segment`) e i colori arrivano da `colors`. Le barre LED sono relè HTTP
+indipendenti, uno per poltrona (`stations[].relay_url`).
+
+Cosa succede, e perché:
+
+| Stato | Luce | Barra |
+| --- | --- | --- |
+| Richiesta in attesa | segmento ambra lampeggiante (`fx` = `blink`) | spenta |
+| In onda | segmento rosso fisso (`fx` = `solid`) | accesa |
+| A riposo | **solo quel segmento** si spegne, il controller resta acceso | spenta |
+
+Le richieste partono con `transition: 0`: una spia di studio deve commutare, non sfumare.
+
+**Adattare l'hardware senza toccare il codice**: gli id degli effetti stanno in
+`wled_effects` (le build WLED non li numerano tutte allo stesso modo), e le chiamate al relè
+sono template. Il default è Shelly **gen 1** (`http://ip/relay/0` + `?turn=on`); per la
+**gen 2** basta cambiare le due stringhe:
+
+```json
+"relay_url": "http://192.168.10.41",
+"relay_on_url": "{url}/rpc/Switch.Set?id=0&on=true",
+"relay_off_url": "{url}/rpc/Switch.Set?id=0&on=false"
+```
+
+Se il controller è protetto da password: `"relay_auth": { "user": "...", "password": "..." }`.
+Il percorso della API WLED, se diverso, si cambia con `wled_state_path`.
+
+Una poltrona **senza** `wled_segment` o **senza** `relay_url` viene saltata in silenzio: è il
+caso delle postazioni aggiunte al volo dalla dashboard, che hanno il video ma non le luci.
+
+### Se le luci non rispondono
+
+Non succede niente alla diretta: l'errore finisce nel log, la dashboard accende il banner
+ambra **DRIVER IN ERRORE — LIGHTS / RELAY**, e la poltrona va in onda lo stesso con il suo
+countdown. Alla prima chiamata riuscita il banner si spegne da solo. Verificato staccando il
+controller a puntata in corso.
 
 ## Modalità manuale
 

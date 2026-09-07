@@ -100,6 +100,9 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
   "ndi_sources_path": "/v1/sources",
   "ndi_monitor_auth": null,
   "wled_url": "http://192.168.10.31",
+  "wled_effects": { "solid": 0, "blink": 1 },
+  "relay_on_url": "{url}?turn=on",
+  "relay_off_url": "{url}?turn=off",
   "driver_timeout_ms": 1500,
   "heartbeat_interval_ms": 2000,
   "station_offline_timeout_ms": 6000,
@@ -119,6 +122,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 - I driver si scelgono da config: `video_driver` (`mock` | `ndi`), `lights_driver` (`mock` | `wled`), `relay_driver` (`mock` | `shelly`). Luci e relè sono due driver distinti perché sono due impianti distinti.
 - `countdown_default_s: null` = un `grant` senza `countdown_s` apre un LIVE **senza** countdown.
 - **NDI Studio Monitor**: si comanda con un POST JSON su `/v1/configuration` — `{"version":1,"NDI_source":"MACCHINA (Stream)"}` per commutare, `"NDI_source":""` per il nero. `/v1/sources` elenca le sorgenti viste in rete (`npm run ndi:sources`). **La prima finestra di Studio Monitor ascolta sulla porta 80, la seconda sulla 81**, ecc.: `ndi_monitor_url` deve puntare alla finestra che sta sull'uscita HDMI pulita. Percorso, nome del campo e versione API restano configurabili (`ndi_config_path`, `ndi_source_field`, `ndi_api_version`) per eventuali build diverse; `ndi_monitor_auth` accetta `{ "user": "...", "password": "..." }` se l'interfaccia è protetta.
+- **Luci e relè**: WLED riceve un POST su `/json/state` con il segmento della poltrona (`transition: 0`, perché una spia commuta e non sfuma); a riposo il segmento si spegne ma il controller resta acceso, così le altre poltrone non si toccano. Gli id degli effetti sono in `wled_effects` perché non tutte le build WLED li numerano uguale. Il relè usa i template `relay_on_url` / `relay_off_url` con segnaposto `{url}`: il default è Shelly gen 1, per la gen 2 basta cambiare le due stringhe. Una poltrona senza `wled_segment` o senza `relay_url` viene semplicemente saltata: è una scelta di configurazione, non un guasto.
 - **`tls`**: i browser espongono webcam, microfono e `RTCPeerConnection` **solo in contesto sicuro** (`https://` o `http://localhost`), quindi con le poltrone su altre macchine l'HTTPS è necessario, non opzionale. `npm run cert` genera un certificato auto-firmato per `localhost`, il nome macchina e tutti gli IP di rete. `tls: null` = HTTP, e le poltrone hanno la webcam solo su localhost. Un certificato mancante o illeggibile non ferma il server: riparte in HTTP con un avviso.
 - `control_token: null` disattiva l'autenticazione (LAN chiusa). Se valorizzato, il ruolo `control` deve presentarlo nell'`hello` e negli endpoint HTTP (header `X-Control-Token`).
 - **Poltrone dalla dashboard**: `stations` si può modificare anche dalla regia (aggiungi/rimuovi a caldo, senza riavvio). Il server riscrive `config.json` in modo atomico tenendo una copia in `config.json.bak`, quindi il file resta l'unica fonte di verità. Una poltrona **in onda non è rimovibile**: prima si chiude l'intervento.
@@ -203,9 +207,9 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 
 ## 9. Milestone (in quest'ordine)
 
-- **M1 — Core loop con driver mock.** Server, macchina a stati, pagina poltrona, dashboard, countdown, heartbeat/OFFLINE, log JSONL. Collaudo: aprire 7 tab `poltrona` + 1 tab `regia` e verificare l'intero giro richiesta→coda→autorizza→countdown→chiudi, il vincolo "una sola LIVE", e il comportamento staccando il server (OFFLINE e recupero).
-- **M2 — Percorso video.** WebRTC in casa: la poltrona pubblica webcam+microfono, la pagina `/feed/` li mostra sull'HDMI verso il mixer, il server fa da signalling e decide chi è sul feed. A riposo nero. Degrada con grazia: se manca il ricevitore feed, se la poltrona non ha webcam o se il feed non conferma entro `webrtc_ready_timeout_ms`, si logga l'errore, si accende il banner in dashboard e il resto continua. Il driver NDI resta disponibile come alternativa (`video_driver: "ndi"`).
-- **M3 — Driver luci.** WLED JSON API (`/json/state`, segmenti per poltrona, colori da config) + relè barre via HTTP. Stessa tolleranza ai guasti di M2.
+- **M1 — Core loop con driver mock. ✅ fatta.** Server, macchina a stati, pagina poltrona, dashboard, countdown, heartbeat/OFFLINE, log JSONL. Collaudo: aprire 7 tab `poltrona` + 1 tab `regia` e verificare l'intero giro richiesta→coda→autorizza→countdown→chiudi, il vincolo "una sola LIVE", e il comportamento staccando il server (OFFLINE e recupero).
+- **M2 — Percorso video. ✅ fatta.** WebRTC in casa: la poltrona pubblica webcam+microfono, la pagina `/feed/` li mostra sull'HDMI verso il mixer, il server fa da signalling e decide chi è sul feed. A riposo nero. Degrada con grazia: se manca il ricevitore feed, se la poltrona non ha webcam o se il feed non conferma entro `webrtc_ready_timeout_ms`, si logga l'errore, si accende il banner in dashboard e il resto continua. Il driver NDI resta disponibile come alternativa (`video_driver: "ndi"`).
+- **M3 — Driver luci. ✅ fatta.** WLED JSON API (`/json/state`, segmenti per poltrona, colori da config) + relè barre via HTTP. Stessa tolleranza ai guasti di M2.
 - **M4 — Rifiniture.** Endpoint Stream Deck, pagina `/log` con cronologia interventi e durate, script/istruzioni di deploy (systemd + Chromium kiosk) nel README.
 
 ## 10. Qualità e collaudo
