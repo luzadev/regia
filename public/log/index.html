@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cronologia interventi</title>
+<link rel="stylesheet" href="/shared/style.css">
+<link rel="stylesheet" href="/regia/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>CRONOLOGIA</h1>
+  <div class="banners">
+    <div id="banner-error" class="banner red" hidden></div>
+  </div>
+  <button id="reload" class="feed-link" type="button">Aggiorna</button>
+  <a class="feed-link" href="/regia/">Torna alla regia</a>
+</header>
+
+<main class="history">
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Interventi</h2>
+      <span id="count" class="count"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="log">
+        <thead>
+          <tr><th>Inizio</th><th>Poltrona</th><th>Ospite</th><th class="num">Durata</th><th class="num">Countdown</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p id="empty" class="empty" hidden>Nessun intervento registrato.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Tempo di parola</h2>
+    <div id="totals" class="totals"></div>
+    <p class="note">Somma delle durate per poltrona, dal log corrente.</p>
+  </section>
+</main>
+<script src="/shared/bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

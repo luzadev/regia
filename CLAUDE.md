@@ -47,6 +47,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   log.js              # event log JSONL
 /public
   poltrona/           # pagina poltrona: /poltrona/?id=post-01
+  log/                # cronologia interventi e tempi di parola: /log/
   regia/              # dashboard: /regia/
   impostazioni/       # configurazione luci e relè: /impostazioni/
   feed/               # feed pulito verso il mixer: /feed/ (Chromium kiosk su HDMI 2)
@@ -220,7 +221,7 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 - **M1 — Core loop con driver mock. ✅ fatta.** Server, macchina a stati, pagina poltrona, dashboard, countdown, heartbeat/OFFLINE, log JSONL. Collaudo: aprire 7 tab `poltrona` + 1 tab `regia` e verificare l'intero giro richiesta→coda→autorizza→countdown→chiudi, il vincolo "una sola LIVE", e il comportamento staccando il server (OFFLINE e recupero).
 - **M2 — Percorso video. ✅ fatta.** WebRTC in casa: la poltrona pubblica webcam+microfono, la pagina `/feed/` li mostra sull'HDMI verso il mixer, il server fa da signalling e decide chi è sul feed. A riposo nero. Degrada con grazia: se manca il ricevitore feed, se la poltrona non ha webcam o se il feed non conferma entro `webrtc_ready_timeout_ms`, si logga l'errore, si accende il banner in dashboard e il resto continua. Il driver NDI resta disponibile come alternativa (`video_driver: "ndi"`).
 - **M3 — Driver luci. ✅ fatta.** WLED JSON API (`/json/state`, segmenti per poltrona, colori da config) + relè barre via HTTP. Stessa tolleranza ai guasti di M2.
-- **M4 — Rifiniture.** Endpoint Stream Deck, pagina `/log` con cronologia interventi e durate, script/istruzioni di deploy (systemd + Chromium kiosk) nel README.
+- **M4 — Rifiniture. ✅ fatta.** Endpoint Stream Deck, pagina `/log` con cronologia interventi e durate, script/istruzioni di deploy (systemd + Chromium kiosk) nel README.
 
 ## 10. Qualità e collaudo
 

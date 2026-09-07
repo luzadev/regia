@@ -9,7 +9,7 @@ const express = require('express');
 const { WebSocketServer } = require('ws');
 
 const { Studio } = require('./state');
-const { createLog } = require('./log');
+const { createLog, readInterventions: readLog } = require('./log');
 const { FeedHub } = require('./feed');
 const { sanitizeSettings, SETTINGS_KEYS } = require('./settings');
 
@@ -771,6 +771,83 @@ app.get('/api/ui-config', (_req, res) =>
     webrtc_monitor_quality: config.webrtc_monitor_quality || null
   })
 );
+/**
+ * Service endpoints for physical controls (Stream Deck and friends). Same
+ * logic as the WebSocket commands, one HTTP call each: a hardware button
+ * should not need a browser open to work.
+ */
+app.use(express.json({ limit: '16kb' }));
+
+function apiAuth(req, res, next) {
+  if (!config.control_token) return next();
+  const token = req.get('X-Control-Token') || req.query.token;
+  if (token === config.control_token) return next();
+  res.status(401).json({ ok: false, error: 'token non valido' });
+}
+
+/** Runs a state-machine result through the same plan/broadcast path as WS. */
+function runApi(res, result) {
+  if (!result.ok) return res.status(409).json({ ok: false, error: result.message, code: result.code });
+  enqueue(async () => {
+    if (result.plan && result.plan.length) {
+      broadcastHeld = true;
+      try {
+        await runPlan(result.plan);
+      } finally {
+        broadcastHeld = false;
+      }
+    }
+    await syncLights();
+    sendSnapshot();
+  });
+  const live = studio.liveStation();
+  res.json({ ok: true, live: live ? live.id : null });
+}
+
+app.post('/api/grant-next', apiAuth, (req, res) => {
+  const seconds = req.body && Number.isFinite(req.body.countdown_s) ? req.body.countdown_s : undefined;
+  const result = studio.grantNext(seconds);
+  if (result.ok) log.event('api_grant_next', { countdown_s: seconds ?? null });
+  runApi(res, result);
+});
+
+app.post('/api/grant/:station', apiAuth, (req, res) => {
+  const seconds = req.body && Number.isFinite(req.body.countdown_s) ? req.body.countdown_s : undefined;
+  const result = studio.grant(req.params.station, seconds);
+  if (result.ok) log.event('api_grant', { station: req.params.station });
+  runApi(res, result);
+});
+
+// Without a station it closes whoever is on air, which is what a single
+// physical button wants to do.
+app.post('/api/close', apiAuth, (req, res) => {
+  const live = studio.liveStation();
+  const id = (req.body && req.body.station) || (live && live.id);
+  if (!id) return res.status(409).json({ ok: false, error: 'nessuna poltrona in onda' });
+  const result = studio.close(id);
+  if (result.ok) log.event('api_close', { station: id });
+  runApi(res, result);
+});
+
+app.post('/api/countdown/:seconds', apiAuth, (req, res) => {
+  const live = studio.liveStation();
+  if (!live) return res.status(409).json({ ok: false, error: 'nessuna poltrona in onda' });
+  const raw = req.params.seconds;
+  // "+30" and "-30" adjust, a bare number sets.
+  const result = /^[+-]/.test(raw)
+    ? studio.countdownAdjust(live.id, parseInt(raw, 10))
+    : studio.countdownSet(live.id, parseInt(raw, 10));
+  if (result.ok) log.event('api_countdown', { station: live.id, value: raw });
+  runApi(res, result);
+});
+
+app.get('/api/state', apiAuth, (_req, res) => res.json(studio.snapshot(driverStatus, feedHub.status())));
+
+app.get('/api/log', apiAuth, (req, res) => {
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
+  res.json(readLog(log.path, limit));
+});
+
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
 
 server.listen(config.http_port || 8080, config.bind_host || '0.0.0.0', () => {

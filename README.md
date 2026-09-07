@@ -4,8 +4,8 @@ Software per lo studio con 7 poltrone ospiti: le poltrone chiedono la parola da 
 la regia vede la coda e autorizza, il server commuta il feed video verso il mixer e accende
 le luci della postazione.
 
-Stato: **M1, M2 e M3 completate** (core loop, percorso video WebRTC in casa, luci e relè).
-M4 (endpoint Stream Deck, pagina `/log`, deploy) non è ancora implementata.
+Stato: **tutte le milestone completate** — core loop, percorso video WebRTC in casa, luci e
+relè, comandi fisici, cronologia e deploy.
 
 Il video e l'audio delle poltrone viaggiano in **WebRTC**, senza software di terze parti:
 la pagina poltrona pubblica webcam e microfono, la pagina `/feed/` li mostra a schermo intero
@@ -309,6 +309,107 @@ una poltrona rimossa vede subito «POLTRONA NON CONFIGURATA».
 
 Nulla nel codice fissa il numero di postazioni: provato con dodici, la griglia di regia si
 riadatta da sola. Il numero è limitato solo dall'hardware, non dal software.
+
+## Comandi fisici (Stream Deck)
+
+Stessa logica dei comandi della dashboard, un colpo HTTP ciascuno: un pulsante fisico non
+deve avere bisogno di un browser aperto.
+
+```bash
+curl -X POST http://<server>:8080/api/grant-next -H 'Content-Type: application/json' -d '{"countdown_s":120}'
+curl -X POST http://<server>:8080/api/grant/post-03
+curl -X POST http://<server>:8080/api/close          # chiude chi è in onda
+curl -X POST http://<server>:8080/api/countdown/120  # imposta a 2:00
+curl -X POST http://<server>:8080/api/countdown/+30  # aggiunge 30 s
+curl -X POST http://<server>:8080/api/countdown/-30  # toglie 30 s
+curl      http://<server>:8080/api/state             # stato completo, in JSON
+```
+
+Risposta `{"ok":true,"live":"post-03"}`; se il comando non ha senso in quel momento (nessuno in
+onda, coda vuota) torna **409** con il motivo, così il pulsante può accendersi di rosso.
+
+Se `control_token` è valorizzato, aggiungi l'intestazione `X-Control-Token: <token>` (oppure
+`?token=…`). Su Stream Deck si usa l'azione *Website / HTTP request* in POST.
+
+## Cronologia interventi
+
+`/log/` (link «Cronologia» in regia) ricostruisce gli interventi dagli eventi già scritti:
+inizio, poltrona, ospite, durata reale e countdown assegnato, più il **tempo di parola** totale
+per poltrona. Le durate che hanno sforato il countdown sono evidenziate in ambra.
+
+Un intervento senza chiusura è marcato **IN ONDA** se è davvero in corso, e **INTERROTTO** se il
+server si è fermato prima della chiusura: senza questa distinzione ogni riavvio lascerebbe una
+riga «in onda» falsa per sempre.
+
+I dati arrivano da `data/events.jsonl`, che è append-only: la cronologia non ha una sua
+contabilità separata da tenere allineata.
+
+## Deploy in studio
+
+### Server di regia (Linux, systemd)
+
+`/etc/systemd/system/regia.service`:
+
+```ini
+[Unit]
+Description=Regia - sistema di richiesta parola
+After=network-online.target
+
+[Service]
+Type=simple
+User=regia
+WorkingDirectory=/opt/regia
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now regia
+sudo journalctl -u regia -f      # log dal vivo
+```
+
+`Restart=always` è voluto: se il processo muore a puntata in corso riparte in pochi secondi e
+le poltrone si riallineano da sole in stato IDLE.
+
+Su **Windows** l'equivalente più semplice è l'Utilità di pianificazione con trigger
+«all'avvio del computer» e azione `node server\index.js` nella cartella del progetto.
+
+### Poltrone (Chromium in kiosk)
+
+```bash
+chromium --kiosk --noerrdialogs --disable-session-crashed-bubble \
+  --use-fake-ui-for-media-stream \
+  --disable-features=TranslateUI \
+  --user-data-dir=/home/kiosk/.regia \
+  "https://<server>:8080/poltrona/?id=post-01"
+```
+
+`--use-fake-ui-for-media-stream` concede webcam e microfono senza chiedere. Su Linux,
+`unclutter -idle 0 &` toglie il cursore anche fuori dalla pagina.
+
+### Feed pulito (secondo monitor del PC di regia)
+
+```bash
+chromium --kiosk --autoplay-policy=no-user-gesture-required \
+  --window-position=1920,0 \
+  --user-data-dir=/home/regia/.regia-feed \
+  "https://localhost:8080/feed/"
+```
+
+`--autoplay-policy=no-user-gesture-required` è necessario: senza, il browser blocca l'audio
+finché qualcuno non clicca. `--window-position` va all'origine del secondo schermo.
+
+### Checklist di accensione
+
+1. Server acceso e raggiungibile (`curl -k https://localhost:8080/api/state`).
+2. Pagina **Feed** aperta sul monitor del mixer: in regia il banner rosso deve sparire.
+3. Sette poltrone **online** con badge verde **cam**.
+4. Nomi ospiti scritti nelle schede.
+5. Una prova completa: richiesta → autorizza → countdown → chiudi.
 
 ## Roadmap
 
