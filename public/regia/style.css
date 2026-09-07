@@ -1,0 +1,96 @@
+/* Control room dashboard: usable with a mouse or by touch. */
+body { min-height: 100vh; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.topbar h1 { font-size: 20px; letter-spacing: 0.18em; margin: 0; }
+.banners { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; }
+.banner { padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 13px; }
+.banner.red { background: rgba(255,45,45,0.16); color: var(--red); }
+.banner.amber { background: rgba(255,170,0,0.16); color: var(--amber); }
+.manual-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.manual-toggle input { width: 20px; height: 20px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.1fr) minmax(320px, 1.3fr);
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+}
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.panel h2 { margin: 0 0 12px; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.panel-head h2 { margin: 0 0 12px; }
+.grant-duration { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.grant-duration select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+
+.empty { color: var(--muted); font-size: 14px; margin: 8px 0; }
+.empty.big { font-size: 18px; padding: 24px 0; text-align: center; }
+
+.queue { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.queue li { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+.queue .pos { font-weight: 800; color: var(--amber); min-width: 22px; }
+.queue .who { flex: 1; min-width: 0; }
+.queue .who strong { display: block; font-size: 16px; }
+.queue .who span { color: var(--muted); font-size: 13px; }
+.queue .wait { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 52px; text-align: right; }
+.queue button { padding: 8px 12px; font-size: 14px; }
+
+button.primary { background: var(--green); color: #04240f; border: none; font-weight: 800; }
+button.danger { background: var(--red); color: #fff; border: none; font-weight: 800; }
+button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06em; }
+
+.live-label { font-size: 15px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+.live-name { font-size: 30px; font-weight: 800; margin-top: 2px; }
+.live-clock { font-size: 72px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; margin: 8px 0; }
+.live-clock.warn { color: var(--amber); }
+.live-clock.alert { color: var(--amber-deep); }
+.live-clock.over { color: var(--red); }
+.live-expired { color: var(--red); font-weight: 800; letter-spacing: 0.08em; margin-bottom: 8px; }
+.presets, .adjust { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+#btn-close { padding: 22px; font-size: 22px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.card.live { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
+.card.requested { border-color: var(--amber); }
+.card.disconnected { opacity: 0.55; }
+.card .head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.card .label { font-weight: 700; font-size: 15px; }
+.card input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px;
+  font: inherit;
+}
+.card .actions { display: flex; gap: 6px; }
+.card .actions button { flex: 1; padding: 8px; font-size: 13px; }
+.card .badges { display: flex; gap: 4px; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--red);
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 999px;
+  z-index: 10;
+}

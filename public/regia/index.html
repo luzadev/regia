@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regia — richieste di parola</title>
+<link rel="stylesheet" href="/shared/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>REGIA</h1>
+  <div class="banners">
+    <div id="banner-offline" class="banner red" hidden>SERVER NON RAGGIUNGIBILE — riconnessione in corso…</div>
+    <div id="banner-drivers" class="banner amber" hidden></div>
+    <div id="banner-manual" class="banner amber" hidden>MODALITÀ MANUALE — video e luci non sono comandati dal server</div>
+  </div>
+  <label class="manual-toggle">
+    <input type="checkbox" id="manual-mode"> Modalità manuale
+  </label>
+</header>
+
+<main class="layout">
+  <section class="panel queue-panel">
+    <div class="panel-head">
+      <h2>Coda richieste</h2>
+      <div class="grant-duration">
+        <label for="grant-countdown">Durata</label>
+        <select id="grant-countdown"></select>
+      </div>
+    </div>
+    <ol id="queue" class="queue"></ol>
+    <p id="queue-empty" class="empty">Nessuna richiesta</p>
+    <button id="btn-grant-next" class="wide primary">AUTORIZZA IL PRIMO</button>
+  </section>
+
+  <section class="panel live-panel">
+    <h2>In onda</h2>
+    <div id="live-none" class="empty big">Nessuna poltrona in onda</div>
+    <div id="live-box" hidden>
+      <div class="live-label" id="live-label"></div>
+      <div class="live-name" id="live-name"></div>
+      <div class="live-clock" id="live-clock">--:--</div>
+      <div id="live-expired" class="live-expired" hidden>TEMPO SCADUTO</div>
+      <div class="presets" id="presets"></div>
+      <div class="adjust">
+        <button data-delta="-30">− 30 s</button>
+        <button data-delta="30">+ 30 s</button>
+        <button id="btn-countdown-off">Senza countdown</button>
+      </div>
+      <button id="btn-close" class="wide danger">CHIUDI</button>
+    </div>
+  </section>
+
+  <section class="panel grid-panel">
+    <h2>Poltrone</h2>
+    <div id="grid" class="grid"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/shared/bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
