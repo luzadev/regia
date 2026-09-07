@@ -54,6 +54,7 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
 
 .live-label { font-size: 15px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 .live-name { font-size: 30px; font-weight: 800; margin-top: 2px; }
+.live-caption { font-size: 12px; letter-spacing: 0.14em; color: var(--muted); margin-top: 10px; }
 .live-clock { font-size: 72px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; margin: 8px 0; }
 .live-clock.warn { color: var(--amber); }
 .live-clock.alert { color: var(--amber-deep); }
@@ -67,7 +68,7 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
 .card.live { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 .card.requested { border-color: var(--amber); }
 .card.disconnected { opacity: 0.55; }
-.card .head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.card .head { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
 .card .label { font-weight: 700; font-size: 15px; }
 .card input {
   width: 100%;
@@ -80,7 +81,7 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
 }
 .card .actions { display: flex; gap: 6px; }
 .card .actions button { flex: 1; padding: 8px; font-size: 13px; }
-.card .badges { display: flex; gap: 4px; }
+.card .badges { display: flex; gap: 4px; flex: 0 0 auto; }
 
 .toast {
   position: fixed;

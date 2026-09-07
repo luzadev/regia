@@ -94,20 +94,26 @@
     var frac = Math.max(0, Math.min(1, remaining / total));
     ringFg.style.strokeDashoffset = RING_C * (1 - frac);
 
-    ringFg.classList.remove('amber', 'amber-deep', 'red', 'blink');
-    clockEl.classList.remove('red', 'blink');
-    expiredEl.hidden = true;
+    // Classes are only touched when the phase changes: rewriting them on every
+    // tick would restart the colour transition and the blink animation.
+    var ringCls = 'ring-fg';
+    var clockCls = 'clock';
+    var expired = false;
 
     if (remaining <= 0) {
       // Zero cuts nothing: it is signalling only (rule §2.2).
-      ringFg.classList.add('red', 'blink');
-      clockEl.classList.add('red', 'blink');
-      expiredEl.hidden = false;
+      ringCls += ' red blink';
+      clockCls += ' red blink';
+      expired = true;
     } else if (remaining <= th.alert) {
-      ringFg.classList.add('amber-deep');
+      ringCls += ' amber-deep';
     } else if (remaining <= th.warn) {
-      ringFg.classList.add('amber');
+      ringCls += ' amber';
     }
+
+    if (ringFg.getAttribute('class') !== ringCls) ringFg.setAttribute('class', ringCls);
+    if (clockEl.className !== clockCls) clockEl.className = clockCls;
+    if (expiredEl.hidden !== !expired) expiredEl.hidden = !expired;
   }
 
   // Local ticking: the server sends a deadline, not one message per second.

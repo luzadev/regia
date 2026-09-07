@@ -23,6 +23,7 @@
     liveBox: document.getElementById('live-box'),
     liveLabel: document.getElementById('live-label'),
     liveName: document.getElementById('live-name'),
+    liveCaption: document.getElementById('live-caption'),
     liveClock: document.getElementById('live-clock'),
     liveExpired: document.getElementById('live-expired'),
     presets: document.getElementById('presets'),
@@ -196,15 +197,17 @@
     el.liveLabel.textContent = live.label;
     el.liveName.textContent = live.name || '—';
 
-    el.liveClock.classList.remove('warn', 'alert', 'over', 'blink');
-    el.liveExpired.hidden = true;
-
     if (live.deadline === null) {
+      // No countdown: show how long the intervention has been running instead.
+      setClockClass('live-clock');
+      el.liveExpired.hidden = true;
+      el.liveCaption.textContent = 'IN ONDA DA';
       el.liveClock.textContent = live.live_since
         ? formatClock((bridge.serverNow() - live.live_since) / 1000)
         : '--:--';
       return;
     }
+    el.liveCaption.textContent = 'TEMPO RESIDUO';
 
     var remaining = (live.deadline - bridge.serverNow()) / 1000;
     var total = live.countdown_total_s || 1;
@@ -212,14 +215,18 @@
     var alert = total > 30 ? 30 : total * 0.25;
 
     el.liveClock.textContent = formatClock(remaining <= 0 ? Math.floor(remaining) : Math.ceil(remaining));
-    if (remaining <= 0) {
-      el.liveClock.classList.add('over', 'blink');
-      el.liveExpired.hidden = false;
-    } else if (remaining <= alert) {
-      el.liveClock.classList.add('alert');
-    } else if (remaining <= warn) {
-      el.liveClock.classList.add('warn');
-    }
+
+    var cls = 'live-clock';
+    if (remaining <= 0) cls += ' over blink';
+    else if (remaining <= alert) cls += ' alert';
+    else if (remaining <= warn) cls += ' warn';
+    setClockClass(cls);
+    if (el.liveExpired.hidden !== !(remaining <= 0)) el.liveExpired.hidden = !(remaining <= 0);
+  }
+
+  /** Rewriting the class every tick would restart the blink animation. */
+  function setClockClass(cls) {
+    if (el.liveClock.className !== cls) el.liveClock.className = cls;
   }
 
   function renderGrid(snap) {
