@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "TV studio floor request system: station touch pages, control room dashboard, video/lights drivers",
+  "contributors": [
+    "Luciano Zappacosta <info@zappacosta.eu>"
+  ],
   "main": "server/index.js",
   "engines": {
     "node": ">=20"

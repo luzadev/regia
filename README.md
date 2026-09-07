@@ -334,3 +334,7 @@ frame**: l'handshake richiede qualche centinaio di millisecondi. Il taglio pulit
 mixer, che tratta questa uscita HDMI come una sorgente. Il software garantisce comunque che la
 poltrona veda "SEI IN ONDA" solo **dopo** che il feed sta effettivamente trasmettendo la sua
 immagine, quindi non esiste il caso "l'ospite parla ma il mixer riceve ancora nero".
+
+## Crediti
+
+**Luciano Zappacosta** — contributor.
