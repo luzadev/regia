@@ -73,6 +73,28 @@ function saveNamesSoon() {
 
 loadNames();
 
+/**
+ * Stations added or removed from the dashboard are written back to
+ * config.json, which stays the single source of truth (brief §6). The write is
+ * atomic and keeps one backup: a half-written config would cost a show.
+ */
+function saveStations() {
+  const backup = CONFIG_PATH + '.bak';
+  const tmp = CONFIG_PATH + '.tmp';
+  try {
+    const onDisk = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    onDisk.stations = studio.list().map((st) => st.config);
+    fs.copyFileSync(CONFIG_PATH, backup);
+    fs.writeFileSync(tmp, JSON.stringify(onDisk, null, 2) + '\n');
+    fs.renameSync(tmp, CONFIG_PATH);
+    return { ok: true };
+  } catch (e) {
+    console.error(`[config] salvataggio fallito: ${e.message}`);
+    log.event('config_save_error', { message: e.message });
+    return { ok: false, message: e.message };
+  }
+}
+
 // --- drivers -----------------------------------------------------------
 
 const driverStatus = {
@@ -479,6 +501,38 @@ function handleControlMessage(ws, msg) {
         broadcast();
       }
       return res.ok ? undefined : sendError(ws, res.code, res.message);
+    }
+    case 'add_station': {
+      const res = studio.addStation(msg.station || {});
+      if (!res.ok) return sendError(ws, res.code, res.message);
+      const saved = saveStations();
+      log.event('station_added', { station: res.station.id, label: res.station.label, saved: saved.ok });
+      if (!saved.ok) {
+        sendError(ws, 'not_persisted', 'Poltrona aggiunta ma non salvata su config.json: sparira al riavvio');
+      }
+      broadcast();
+      return;
+    }
+    case 'remove_station': {
+      const id = msg.station;
+      const res = studio.removeStation(id);
+      if (!res.ok) return sendError(ws, res.code, res.message);
+
+      // Drop everything that referenced it, so nothing keeps pointing at a
+      // station that no longer exists.
+      const socket = stationSockets.get(id);
+      if (socket) {
+        stationSockets.delete(id);
+        socket.close(4004, 'removed');
+      }
+      appliedColor.delete(id);
+      const saved = saveStations();
+      log.event('station_removed', { station: id, saved: saved.ok });
+      if (!saved.ok) {
+        sendError(ws, 'not_persisted', 'Poltrona rimossa ma non salvata su config.json: tornera al riavvio');
+      }
+      broadcast();
+      return;
     }
     case 'manual_mode': {
       const res = studio.setManualMode(msg.enabled);

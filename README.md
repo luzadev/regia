@@ -248,6 +248,29 @@ Se Studio Monitor non risponde entro `driver_timeout_ms`:
 - **il resto continua**: la poltrona va comunque in onda, il countdown parte, le luci si
   accendono e la coda funziona. Alla prima chiamata riuscita il banner sparisce da solo.
 
+## Aggiungere e togliere poltrone
+
+Dalla dashboard, pannello **Poltrone → + Aggiungi poltrona**. Id ed etichetta sono già
+proposti (`post-08`, «Poltrona 8»); segmento luci e URL del relè sono facoltativi e servono
+solo ai driver di M3.
+
+La poltrona è attiva **subito, senza riavviare il server**, e viene scritta in `config.json`
+(in modo atomico, con copia di sicurezza in `config.json.bak`): resta anche dopo un riavvio.
+Sotto l'etichetta di ogni scheda c'è il suo id: cliccandolo si apre la pagina di quella
+poltrona, pronta da caricare sul mini PC nuovo.
+
+Per toglierne una, la **×** in alto a destra della scheda, con conferma in due passi. Una
+poltrona **in onda non si può rimuovere**: prima si chiude l'intervento. Chi era collegato a
+una poltrona rimossa vede subito «POLTRONA NON CONFIGURATA».
+
+Nulla nel codice fissa il numero di postazioni: provato con dodici, la griglia di regia si
+riadatta da sola. Il numero è limitato solo dall'hardware, non dal software.
+
+## Roadmap
+
+`docs/roadmap.html` — apribile direttamente nel browser (doppio clic sul file). Descrive le
+release successive: studio completo, multi-device, ospiti remoti, ambienti phygital.
+
 ## Modalità manuale
 
 Il toggle in dashboard congela i driver: il server smette di comandare video e luci, ma coda,

@@ -23,13 +23,33 @@ function err(code, message) {
   return { ok: false, code, message };
 }
 
+function makeStation(config) {
+  return {
+    id: config.id,
+    label: config.label || config.id,
+    name: '',
+    state: IDLE,
+    connected: false,
+    requested_at: null,
+    live_since: null,
+    deadline: null,
+    countdown_total_s: null,
+    denied_until: null,
+    intervention_id: null,
+    media: { ok: null, message: null },
+    config
+  };
+}
+
 class Studio {
   /**
    * @param {object} config parsed config.json
    * @param {{ now?: () => number, newId?: () => string }} [opts] injectable clock/id for tests
    */
   constructor(config, opts = {}) {
-    this.config = config;
+    // The station list is owned from here on (it grows and shrinks at runtime),
+    // so copy the array instead of mutating the caller's.
+    this.config = { ...config, stations: [...config.stations] };
     this.now = opts.now || (() => Date.now());
     this.newId = opts.newId || (() => Math.random().toString(36).slice(2, 12));
     this.deniedDurationMs = (config.denied_duration_s ?? 5) * 1000;
@@ -37,23 +57,40 @@ class Studio {
     this.manualMode = false;
     this.stations = new Map();
 
-    for (const s of config.stations) {
-      this.stations.set(s.id, {
-        id: s.id,
-        label: s.label || s.id,
-        name: '',
-        state: IDLE,
-        connected: false,
-        requested_at: null,
-        live_since: null,
-        deadline: null,
-        countdown_total_s: null,
-        denied_until: null,
-        intervention_id: null,
-        media: { ok: null, message: null },
-        config: s
-      });
+    for (const s of config.stations) this.stations.set(s.id, makeStation(s));
+  }
+
+  /**
+   * Adds a station while the show is running. The definition is validated here
+   * so the caller only has to persist it.
+   */
+  addStation(def) {
+    const id = String((def && def.id) || '').trim();
+    if (!/^[a-z0-9][a-z0-9_-]{0,30}$/.test(id)) {
+      return err('bad_id', 'Id non valido: usa lettere minuscole, cifre, - e _');
     }
+    if (this.stations.has(id)) return err('duplicate_id', `La poltrona ${id} esiste gia`);
+
+    const stationConfig = { id, label: String((def.label || '').trim() || id).slice(0, 40) };
+    if (def.ndi_source) stationConfig.ndi_source = String(def.ndi_source).slice(0, 80);
+    if (Number.isInteger(def.wled_segment)) stationConfig.wled_segment = def.wled_segment;
+    if (def.relay_url) stationConfig.relay_url = String(def.relay_url).slice(0, 200);
+
+    this.stations.set(id, makeStation(stationConfig));
+    this.config.stations.push(stationConfig);
+    return { ok: true, plan: [], station: stationConfig };
+  }
+
+  /** Removes a station. Never one that is on air. */
+  removeStation(id) {
+    const st = this.get(id);
+    if (!st) return err('unknown_station', `Poltrona sconosciuta: ${id}`);
+    if (st.state === LIVE) return err('is_live', "Chiudi l'intervento prima di rimuovere la poltrona");
+
+    this.stations.delete(id);
+    const i = this.config.stations.findIndex((s) => s.id === id);
+    if (i !== -1) this.config.stations.splice(i, 1);
+    return { ok: true, plan: [], removed: id };
   }
 
   get(id) {

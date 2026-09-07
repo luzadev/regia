@@ -298,3 +298,63 @@ test('snapshot carries the feed status for the dashboard', () => {
   assert.deepEqual(studio.snapshot({}, feed).feed, feed);
   assert.equal(studio.snapshot({}).feed, null);
 });
+
+test('a station can be added while the show runs', () => {
+  const { studio } = makeStudio();
+  const res = studio.addStation({ id: 'post-04', label: '  Divano  ', wled_segment: 3 });
+
+  assert.equal(res.ok, true);
+  assert.equal(studio.list().length, 4);
+  assert.equal(studio.get('post-04').state, 'IDLE');
+  assert.equal(studio.get('post-04').label, 'Divano');
+  assert.deepEqual(res.station, { id: 'post-04', label: 'Divano', wled_segment: 3 });
+  // The config array is what gets persisted, so it must follow along.
+  assert.equal(studio.config.stations.length, 4);
+});
+
+test('a new station works like any other: it can request and go live', () => {
+  const { studio } = makeStudio();
+  studio.addStation({ id: 'post-04', label: 'Divano' });
+  studio.requestFloor('post-04');
+  assert.deepEqual(studio.queue().map((s) => s.id), ['post-04']);
+  assert.equal(studio.grant('post-04').ok, true);
+  assert.equal(studio.liveStation().id, 'post-04');
+});
+
+test('bad and duplicate ids are refused', () => {
+  const { studio } = makeStudio();
+  assert.equal(studio.addStation({ id: 'post-01' }).code, 'duplicate_id');
+  assert.equal(studio.addStation({ id: 'Post 04' }).code, 'bad_id');
+  assert.equal(studio.addStation({ id: '' }).code, 'bad_id');
+  assert.equal(studio.addStation({ id: '-nope' }).code, 'bad_id');
+  assert.equal(studio.addStation({}).code, 'bad_id');
+  assert.equal(studio.list().length, 3, 'nothing may be created by a refused add');
+});
+
+test('the label falls back to the id, and optional fields stay out when empty', () => {
+  const { studio } = makeStudio();
+  const res = studio.addStation({ id: 'post-04' });
+  assert.equal(res.station.label, 'post-04');
+  assert.deepEqual(Object.keys(res.station), ['id', 'label'], 'no empty keys in the saved config');
+});
+
+test('a station can be removed, but never while it is on air', () => {
+  const { studio } = makeStudio();
+  studio.grant('post-01');
+  assert.equal(studio.removeStation('post-01').code, 'is_live');
+  assert.equal(studio.list().length, 3);
+
+  studio.close('post-01');
+  assert.equal(studio.removeStation('post-01').ok, true);
+  assert.equal(studio.get('post-01'), null);
+  assert.equal(studio.config.stations.length, 2, 'the persisted config follows the removal');
+  assert.equal(studio.removeStation('post-01').code, 'unknown_station');
+});
+
+test('removing a queued station takes it out of the queue', () => {
+  const { studio } = makeStudio();
+  studio.requestFloor('post-02');
+  studio.requestFloor('post-03');
+  studio.removeStation('post-02');
+  assert.deepEqual(studio.queue().map((s) => s.id), ['post-03']);
+});

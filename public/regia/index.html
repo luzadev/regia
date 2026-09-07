@@ -61,7 +61,27 @@
   </section>
 
   <section class="panel grid-panel">
-    <h2>Poltrone</h2>
+    <div class="panel-head">
+      <h2>Poltrone</h2>
+      <button id="btn-add-station" class="add-toggle">+ Aggiungi poltrona</button>
+    </div>
+
+    <form id="add-station" class="add-form" hidden>
+      <div class="add-row">
+        <label>Id<input id="new-id" type="text" autocomplete="off" spellcheck="false" maxlength="31" required></label>
+        <label>Etichetta<input id="new-label" type="text" autocomplete="off" maxlength="40" required></label>
+      </div>
+      <div class="add-row">
+        <label>Segmento luci<input id="new-segment" type="number" min="0" max="99" inputmode="numeric"></label>
+        <label>URL relè<input id="new-relay" type="url" autocomplete="off" placeholder="http://192.168.10.48/relay/0"></label>
+      </div>
+      <div class="add-actions">
+        <button type="submit" class="primary">Aggiungi</button>
+        <button type="button" id="btn-add-cancel">Annulla</button>
+        <span class="add-hint">Salvata in config.json: resta anche dopo un riavvio.</span>
+      </div>
+    </form>
+
     <div id="grid" class="grid"></div>
   </section>
 </main>

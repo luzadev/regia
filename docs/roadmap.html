@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap Regia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Control room dark, deliberately single-theme: this document describes
+     surfaces that live in a darkened studio, and it is read next to them. */
+  :root {
+    --ground: #0B0E12;
+    --panel: #141920;
+    --panel-2: #1A212A;
+    --line: #232C36;
+    --line-soft: #1B232C;
+    --ink: #E9EEF3;
+    --muted: #8B99A8;
+    --dim: #5F6C7B;
+    --tally-red: #FF3B30;
+    --tally-amber: #FFA800;
+    --tally-green: #21C063;
+    --cool: #5B9DD9;
+
+    --max: 74rem;
+    --col: 62ch;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  .wrap {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 56px);
+  }
+
+  /* ---------- type ---------- */
+
+  h1, h2, h3, .slug {
+    font-family: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(52px, 11vw, 104px);
+    font-weight: 700;
+    line-height: 0.92;
+    letter-spacing: -0.015em;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 600;
+    line-height: 1.05;
+    text-transform: uppercase;
+    letter-spacing: 0.005em;
+  }
+
+  h3 {
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  p { margin: 0; max-width: var(--col); }
+
+  .lede {
+    font-size: clamp(19px, 2.2vw, 23px);
+    line-height: 1.5;
+    color: var(--ink);
+    max-width: 46ch;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.88em;
+    background: var(--panel-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 0.08em 0.34em;
+    color: #C6D4E2;
+  }
+
+  strong { font-weight: 600; color: #FFF; }
+
+  /* ---------- header ---------- */
+
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: clamp(40px, 8vw, 84px) 0 0;
+  }
+
+  .titleblock {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding-bottom: 34px;
+  }
+
+  .title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: clamp(20px, 4vw, 48px);
+  }
+
+  .onair {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 12px 6px 10px;
+    border: 1px solid rgba(255, 59, 48, 0.4);
+    border-radius: 3px;
+    background: rgba(255, 59, 48, 0.09);
+    color: var(--tally-red);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    white-space: nowrap;
+  }
+
+  .onair::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tally-red);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 34px;
+    border-top: 1px solid var(--line-soft);
+    padding: 14px 0 22px;
+  }
+
+  .meta div { display: flex; gap: 9px; align-items: baseline; }
+  .meta dt { color: var(--dim); }
+  .meta dd {
+    margin: 0;
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { padding: clamp(48px, 7vw, 84px) 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+
+  .sec-head {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: 0 24px;
+    align-items: start;
+    margin-bottom: 30px;
+  }
+
+  .sec-head .eyebrow { padding-top: 9px; }
+  .sec-head p { margin-top: 12px; color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .sec-head { grid-template-columns: 1fr; gap: 10px; }
+    .sec-head .eyebrow { padding-top: 0; }
+  }
+
+  /* ---------- seams ---------- */
+
+  .seams {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-top: 26px;
+  }
+
+  .seam { background: var(--panel); padding: 22px 20px 24px; display: flex; flex-direction: column; gap: 10px; }
+  .seam .n { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--cool); letter-spacing: 0.1em; }
+  .seam p { font-size: 15.5px; color: var(--muted); }
+  .seam .now { font-size: 14px; color: var(--dim); font-family: "IBM Plex Mono", monospace; line-height: 1.5; }
+
+  figure { margin: 30px 0 0; }
+  .diagram { width: 100%; overflow-x: auto; }
+  .diagram svg { display: block; min-width: 640px; width: 100%; height: auto; }
+  figcaption { margin-top: 12px; color: var(--dim); font-size: 14px; max-width: var(--col); }
+
+  /* ---------- rundown ---------- */
+
+  .rundown { display: flex; flex-direction: column; }
+
+  .block {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: 0 24px;
+    padding: 30px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .block:first-child { border-top: 1px solid var(--line); }
+
+  .rail { display: flex; flex-direction: column; gap: 10px; }
+
+  .code {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: 0.01em;
+  }
+
+  .chip {
+    align-self: flex-start;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .chip.done { background: rgba(33, 192, 99, 0.13); color: var(--tally-green); }
+  .chip.next { background: rgba(255, 168, 0, 0.13); color: var(--tally-amber); }
+  .chip.later { background: rgba(139, 153, 168, 0.11); color: var(--muted); }
+
+  .body-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .block h3 + p { color: var(--muted); }
+
+  .build { display: flex; flex-direction: column; gap: 7px; margin: 2px 0 0; padding: 0; list-style: none; max-width: var(--col); }
+  .build li { position: relative; padding-left: 20px; font-size: 16px; color: var(--ink); }
+  .build li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.66em;
+    width: 7px;
+    height: 1px;
+    background: var(--dim);
+  }
+
+  .hinge {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: baseline;
+    padding: 12px 14px;
+    background: var(--panel);
+    border-left: 2px solid var(--cool);
+    max-width: var(--col);
+  }
+  .hinge b {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cool);
+    font-weight: 600;
+  }
+  .hinge span { font-size: 15px; color: var(--muted); }
+
+  .risk {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    max-width: var(--col);
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .risk b {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--tally-amber);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 720px) {
+    .block { grid-template-columns: 1fr; gap: 14px; }
+    .rail { flex-direction: row; align-items: center; gap: 14px; }
+    .code { font-size: 26px; }
+  }
+
+  /* ---------- phygital split ---------- */
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-top: 22px;
+  }
+  .split > div { background: var(--panel); padding: 22px 20px; display: flex; flex-direction: column; gap: 11px; }
+  .split h3 { font-size: 18px; }
+  .split p { font-size: 15.5px; color: var(--muted); }
+  .dir {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--dim);
+  }
+
+  /* ---------- targets table ---------- */
+
+  .table-scroll { overflow-x: auto; margin-top: 22px; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 11px 16px 11px 0; border-bottom: 1px solid var(--line-soft); vertical-align: baseline; }
+  thead th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    font-weight: 500;
+    border-bottom-color: var(--line);
+  }
+  td.num { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+  td.why { color: var(--muted); }
+
+  /* ---------- guardrails ---------- */
+
+  .rules { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 22px; }
+  .rule { background: var(--panel); padding: 16px 20px; display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 16px; align-items: baseline; }
+  .rule .k { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--tally-red); font-weight: 600; }
+  .rule p { max-width: 68ch; font-size: 16px; }
+
+  /* ---------- questions ---------- */
+
+  .questions { display: flex; flex-direction: column; gap: 20px; margin-top: 22px; counter-reset: q; }
+  .q { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 16px; }
+  .q .k { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--tally-amber); padding-top: 3px; }
+  .q h3 { font-size: 18px; text-transform: none; letter-spacing: 0; }
+  .q p { color: var(--muted); font-size: 15.5px; margin-top: 6px; }
+
+  footer { padding: 40px 0 64px; color: var(--dim); font-size: 14px; }
+  footer p { max-width: var(--col); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .onair::before { animation: pulse 2.4s ease-in-out infinite; }
+  }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+</style>
+
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="titleblock">
+      <span class="eyebrow">Product roadmap · sistema di richiesta parola</span>
+      <div class="title-row">
+        <h1>Regia</h1>
+        <span class="onair">Core in onda</span>
+      </div>
+      <p class="lede">
+        Il sistema che oggi gestisce sette poltrone in uno studio ha già le giunzioni per
+        reggere molto altro. Questa roadmap non aggiunge funzioni a caso: estende tre punti
+        precisi dell'architettura, uno per volta, senza toccare le regole che tengono in piedi
+        la diretta.
+      </p>
+    </div>
+    <dl class="meta">
+      <div><dt class="eyebrow">Stato</dt><dd>R1 consegnata · R2 in corso</dd></div>
+      <div><dt class="eyebrow">Base</dt><dd>Node 20+ · WebSocket · WebRTC in LAN</dd></div>
+      <div><dt class="eyebrow">Vincolo</dt><dd>zero internet sul percorso critico</dd></div>
+    </dl>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Principio</span>
+      <div>
+        <h2>Il nucleo resta locale. Tutto il resto è un adattatore.</h2>
+        <p>
+          La puntata deve andare in onda anche con il cavo di internet staccato. Ogni cosa che
+          aggiungiamo — un ospite remoto, una vetrina in un mondo virtuale, un tablet in più —
+          si attacca <em>attorno</em> a quel nucleo come adattatore sostituibile, e la sua
+          assenza o il suo guasto non fermano mai lo studio.
+        </p>
+        <p style="margin-top: 12px;">
+          È lo stesso criterio che regge già i driver video e luci: se una periferica non
+          risponde, l'errore si accende in dashboard e la diretta prosegue.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Le giunzioni</span>
+      <div>
+        <h2>Tre punti di estensione, già in casa</h2>
+        <p>
+          Non sono da costruire: reggono il sistema attuale. Ogni release qui sotto dichiara
+          quale delle tre sfrutta — se una proposta non si attacca a nessuna, è un progetto
+          diverso, non una release di questo.
+        </p>
+      </div>
+    </div>
+
+    <div class="seams">
+      <div class="seam">
+        <span class="n">01 — INGRESSI</span>
+        <h3>Ruoli sul canale unico</h3>
+        <p>
+          Un solo endpoint WebSocket, e chi si collega dichiara cosa è. Aggiungere un tipo di
+          partecipante è aggiungere un ruolo, non un sistema.
+        </p>
+        <span class="now">oggi: station · control · feed · monitor</span>
+      </div>
+      <div class="seam">
+        <span class="n">02 — USCITE</span>
+        <h3>Driver sostituibili</h3>
+        <p>
+          Video, luci e relè sono driver scelti da configurazione, con timeout breve e degrado
+          controllato. Una nuova destinazione è un file nuovo, non una riscrittura.
+        </p>
+        <span class="now">oggi: webrtc · ndi · wled · shelly · mock</span>
+      </div>
+      <div class="seam">
+        <span class="n">03 — STATO</span>
+        <h3>Server autoritativo</h3>
+        <p>
+          Nessun client possiede lo stato: il server manda l'istantanea completa a ogni
+          cambiamento. È ciò che rende il multi-device quasi gratuito lato protocollo.
+        </p>
+        <span class="now">oggi: state_sync idempotente + heartbeat</span>
+      </div>
+    </div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 260" role="img" aria-label="Schema: ingressi a sinistra, nucleo al centro, uscite a destra, con i punti in cui si attaccano le release future">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#5F6C7B"></path>
+            </marker>
+          </defs>
+
+          <!-- nucleo -->
+          <rect x="352" y="66" width="196" height="128" rx="3" fill="#1A212A" stroke="#232C36"></rect>
+          <text x="450" y="98" text-anchor="middle" fill="#E9EEF3" font-family="Barlow Condensed, sans-serif" font-size="21" font-weight="700" letter-spacing="1">NUCLEO</text>
+          <text x="450" y="122" text-anchor="middle" fill="#8B99A8" font-family="IBM Plex Mono, monospace" font-size="12">macchina a stati</text>
+          <text x="450" y="141" text-anchor="middle" fill="#8B99A8" font-family="IBM Plex Mono, monospace" font-size="12">coda · countdown</text>
+          <text x="450" y="160" text-anchor="middle" fill="#8B99A8" font-family="IBM Plex Mono, monospace" font-size="12">state_sync</text>
+          <text x="450" y="182" text-anchor="middle" fill="#21C063" font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="1">LAN · OFFLINE</text>
+
+          <!-- ingressi -->
+          <text x="40" y="40" fill="#5F6C7B" font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="2">INGRESSI</text>
+          <rect x="40" y="56" width="182" height="30" rx="3" fill="#141920" stroke="#232C36"></rect>
+          <text x="56" y="76" fill="#E9EEF3" font-family="IBM Plex Mono, monospace" font-size="12">7 poltrone fisiche</text>
+          <rect x="40" y="94" width="182" height="30" rx="3" fill="#141920" stroke="#232C36"></rect>
+          <text x="56" y="114" fill="#E9EEF3" font-family="IBM Plex Mono, monospace" font-size="12">regia · Stream Deck</text>
+          <rect x="40" y="132" width="182" height="30" rx="3" fill="#141920" stroke="#232C36" stroke-dasharray="3 3"></rect>
+          <text x="56" y="152" fill="#FFA800" font-family="IBM Plex Mono, monospace" font-size="12">tablet ospite · R3</text>
+          <rect x="40" y="170" width="182" height="30" rx="3" fill="#141920" stroke="#232C36" stroke-dasharray="3 3"></rect>
+          <text x="56" y="190" fill="#FFA800" font-family="IBM Plex Mono, monospace" font-size="12">ospite remoto · R4</text>
+          <rect x="40" y="208" width="182" height="30" rx="3" fill="#141920" stroke="#232C36" stroke-dasharray="3 3"></rect>
+          <text x="56" y="228" fill="#FFA800" font-family="IBM Plex Mono, monospace" font-size="12">avatar in Voxels · R5</text>
+
+          <path d="M228 130 L346 130" stroke="#5F6C7B" stroke-width="1" marker-end="url(#ar)"></path>
+          <text x="287" y="120" text-anchor="middle" fill="#5B9DD9" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1">RUOLI</text>
+
+          <!-- uscite -->
+          <text x="678" y="40" fill="#5F6C7B" font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="2">USCITE</text>
+          <rect x="678" y="56" width="182" height="30" rx="3" fill="#141920" stroke="#232C36"></rect>
+          <text x="694" y="76" fill="#E9EEF3" font-family="IBM Plex Mono, monospace" font-size="12">feed pulito → mixer</text>
+          <rect x="678" y="94" width="182" height="30" rx="3" fill="#141920" stroke="#232C36"></rect>
+          <text x="694" y="114" fill="#E9EEF3" font-family="IBM Plex Mono, monospace" font-size="12">luci · relè postazione</text>
+          <rect x="678" y="132" width="182" height="30" rx="3" fill="#141920" stroke="#232C36" stroke-dasharray="3 3"></rect>
+          <text x="694" y="152" fill="#FFA800" font-family="IBM Plex Mono, monospace" font-size="12">uscite multiple · R3</text>
+          <rect x="678" y="170" width="182" height="30" rx="3" fill="#141920" stroke="#232C36" stroke-dasharray="3 3"></rect>
+          <text x="694" y="190" fill="#FFA800" font-family="IBM Plex Mono, monospace" font-size="12">stream → HQ virtuale</text>
+          <rect x="678" y="208" width="182" height="30" rx="3" fill="#141920" stroke="#232C36" stroke-dasharray="3 3"></rect>
+          <text x="694" y="228" fill="#FFA800" font-family="IBM Plex Mono, monospace" font-size="12">luci ← eventi virtuali</text>
+
+          <path d="M554 130 L672 130" stroke="#5F6C7B" stroke-width="1" marker-end="url(#ar)"></path>
+          <text x="613" y="120" text-anchor="middle" fill="#5B9DD9" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1">DRIVER</text>
+        </svg>
+      </div>
+      <figcaption>
+        Le caselle continue esistono oggi; quelle tratteggiate sono le release future. Nessuna
+        di esse tocca il nucleo: entrano tutte da un ruolo o escono da un driver.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Scaletta</span>
+      <div>
+        <h2>Le release, in ordine</h2>
+        <p>
+          Ordinate come una scaletta di puntata: ogni blocco deve poter andare in onda da solo.
+          Nessuna release lascia il sistema in uno stato in cui serve la successiva per fare
+          una diretta.
+        </p>
+      </div>
+    </div>
+
+    <div class="rundown">
+
+      <article class="block">
+        <div class="rail">
+          <span class="code">R1</span>
+          <span class="chip done">consegnata</span>
+        </div>
+        <div class="body-col">
+          <h3>In onda</h3>
+          <p>Il giro completo: l'ospite chiede, la regia autorizza, il video arriva al mixer, la regia chiude. A mano, sempre.</p>
+          <ul class="build">
+            <li>Coda FIFO, countdown con overtime, vincolo di una sola poltrona in onda</li>
+            <li>Percorso video WebRTC in casa: nessun software di terze parti sulle poltrone</li>
+            <li>Fail-safe: feed nero a riposo, ripartenza pulita, schermata offline sulle poltrone</li>
+            <li>Anteprima di ciò che è in onda dentro la dashboard</li>
+          </ul>
+          <div class="hinge"><b>Giunzione</b><span>Tutte e tre: è il pezzo che le ha create.</span></div>
+        </div>
+      </article>
+
+      <article class="block">
+        <div class="rail">
+          <span class="code">R2</span>
+          <span class="chip next">in corso</span>
+        </div>
+        <div class="body-col">
+          <h3>Studio completo</h3>
+          <p>Ciò che serve per fare una puntata vera senza assistenza tecnica, ogni settimana, sempre uguale.</p>
+          <ul class="build">
+            <li>Luci di postazione: WLED per i colori di stato, relè per le barre LED</li>
+            <li>Comandi fisici: endpoint HTTP per Stream Deck (autorizza il primo, chiudi, countdown)</li>
+            <li>Pagina cronologia: chi ha parlato, quanto, in che ordine — dai log già scritti</li>
+            <li>Deploy ripetibile: avvio automatico del server e dei kiosk, procedura di accensione studio</li>
+          </ul>
+          <div class="hinge"><b>Giunzione</b><span>Uscite — due driver nuovi, nucleo intatto.</span></div>
+          <p class="risk"><b>Rischio</b><span>È la release meno appariscente e la più determinante: senza, ogni puntata resta un montaggio a mano.</span></p>
+        </div>
+      </article>
+
+      <article class="block">
+        <div class="rail">
+          <span class="code">R3</span>
+          <span class="chip later">successiva</span>
+        </div>
+        <div class="body-col">
+          <h3>Multi-device</h3>
+          <p>Oggi il sistema dà per scontato sette kiosk fissi e una sola uscita. Questa release toglie entrambe le assunzioni.</p>
+          <ul class="build">
+            <li><strong>Numero di poltrone libero</strong>: già oggi è una voce di configurazione e un riavvio — provato con dodici postazioni, nessuna riga di codice cambiata e griglia di regia che si riadatta da sola. Questa release lo rende un arruolamento a caldo, senza fermare il server tra una puntata e l'altra</li>
+            <li><strong>Dispositivi ospite qualsiasi</strong>: la pagina poltrona è già web, serve layout adattivo e installazione come app su tablet e telefoni</li>
+            <li><strong>Arruolamento con QR</strong> al posto di <code>?id=post-01</code>: identità e token per dispositivo, così venti device che entrano ed escono restano governabili</li>
+            <li><strong>Più superfici di regia</strong>: dashboard su tablet, telefono del floor manager, Stream Deck, tutte in vista sullo stesso stato</li>
+            <li><strong>Uscite multiple con nome</strong>: da "un feed pulito" a N bus (programma, anteprima, secondo schermo di studio), ognuno con la propria sorgente</li>
+          </ul>
+          <div class="hinge"><b>Giunzione</b><span>Ingressi + Uscite. Le uscite multiple sono il vero lavoro architetturale, e abilitano R4 e R5.</span></div>
+          <p class="risk"><b>Rischio</b><span>Più dispositivi significa più modi di sbagliare postazione: l'arruolamento va progettato prima, non dopo.</span></p>
+        </div>
+      </article>
+
+      <article class="block">
+        <div class="rail">
+          <span class="code">R4</span>
+          <span class="chip later">successiva</span>
+        </div>
+        <div class="body-col">
+          <h3>Ospiti remoti e studi distribuiti</h3>
+          <p>Un ospite che non è in studio entra nella stessa coda delle poltrone fisiche, con lo stesso pulsante Autorizza.</p>
+          <ul class="build">
+            <li><strong>Gateway remoto</strong>: un componente separato termina il collegamento esterno e lo ripubblica in LAN come una poltrona locale qualsiasi</li>
+            <li>Il nucleo non sa che l'ospite è remoto: nessuna eccezione dentro la macchina a stati</li>
+            <li>Ritardo dichiarato per poltrona, visibile in regia: chi conduce deve sapere quanto aspettare la risposta</li>
+            <li>Più studi, una regia: stessa dashboard, poltrone raggruppate per sede</li>
+          </ul>
+          <div class="hinge"><b>Giunzione</b><span>Ingressi — una poltrona è un client che pubblica media e chiede la parola, non una sedia.</span></div>
+          <p class="risk"><b>Rischio</b><span>È l'unico punto in cui internet entra nel sistema. Va isolato nel gateway e dichiarato: se cade, cadono gli ospiti remoti, non la puntata.</span></p>
+        </div>
+      </article>
+
+      <article class="block">
+        <div class="rail">
+          <span class="code">R5</span>
+          <span class="chip later">esplorativa</span>
+        </div>
+        <div class="body-col">
+          <h3>Phygital — l'HQ in Voxels</h3>
+          <p>
+            Il collegamento con l'HQ virtuale non è una cosa sola: sono due direzioni con costi
+            molto diversi. Vanno decise separatamente, e la prima può uscire da sola.
+          </p>
+
+          <div class="split">
+            <div>
+              <span class="dir">USCITA →</span>
+              <h3>Lo studio dentro il mondo</h3>
+              <p>
+                Il programma appare su una superficie dell'HQ. Serve un'uscita nel formato che
+                un mondo virtuale sa consumare — uno stream, non la nostra pagina — quindi un
+                driver nuovo agganciato a un bus dedicato: non tocca il feed verso il mixer.
+              </p>
+              <p><strong>Costo contenuto. È una vetrina, e si può fare subito dopo R3.</strong></p>
+            </div>
+            <div>
+              <span class="dir">INGRESSO ←</span>
+              <h3>Il mondo dentro lo studio</h3>
+              <p>
+                Un avatar chiede la parola e va in onda. Qui l'architettura è già pronta: entra
+                nella stessa coda FIFO delle sette poltrone, distinto da un badge, autorizzato
+                con lo stesso pulsante. Il lavoro sta nel client dentro il mondo e nella qualità
+                del suo audio, non nel nucleo.
+              </p>
+              <p><strong>Costo alto, effetto alto: è il pezzo che rende l'HQ un luogo, non una vetrina.</strong></p>
+            </div>
+          </div>
+
+          <ul class="build" style="margin-top: 16px;">
+            <li><strong>Reazioni del pubblico virtuale</strong> (applausi, voti) che accendono le luci di studio: è il driver luci al contrario, la simmetria è già nell'architettura</li>
+            <li><strong>Coda ibrida</strong>: fisico e virtuale nello stesso ordine di arrivo, perché per la regia sono la stessa decisione</li>
+          </ul>
+          <div class="hinge"><b>Giunzione</b><span>Ingressi per la partecipazione, Uscite per la vetrina, Driver per le reazioni.</span></div>
+          <p class="risk"><b>Rischio</b><span>Un mondo virtuale è una piattaforma di terzi che cambia sotto di noi: va trattato come una periferica che può non rispondere, esattamente come una luce.</span></p>
+        </div>
+      </article>
+
+      <article class="block">
+        <div class="rail">
+          <span class="code">R6</span>
+          <span class="chip later">direzione</span>
+        </div>
+        <div class="body-col">
+          <h3>Da impianto a prodotto</h3>
+          <p>Solo quando le precedenti sono in onda da qualche mese: è la release che si merita, non si pianifica.</p>
+          <ul class="build">
+            <li>Più studi e più clienti sullo stesso software, configurazione per sede</li>
+            <li>Archivio degli interventi consultabile: durate, ricorrenze, chi parla quanto nel tempo</li>
+            <li>Telemetria e aggiornamenti da remoto — opzionali, mai sul percorso critico</li>
+          </ul>
+          <div class="hinge"><b>Giunzione</b><span>Stato — è l'unica che tocca il nucleo, e per questo va per ultima.</span></div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Misure</span>
+      <div>
+        <h2>Obiettivi che non cambiano</h2>
+        <p>
+          Valgono a ogni release: una funzione nuova che li peggiora non è pronta. I numeri di
+          oggi sono misurati sull'impianto attuale, non stimati.
+        </p>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Misura</th><th scope="col">Oggi</th><th scope="col">Perché conta</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Latenza video in LAN</td><td class="num">100–200 ms</td><td class="why">Sotto la soglia in cui una risposta in studio suona sbagliata</td></tr>
+          <tr><td>Qualità del flusso in onda</td><td class="num">1280×720 · 30 fps · 4 Mbit/s</td><td class="why">Misurato con la limitazione dell'encoder a zero</td></tr>
+          <tr><td>Tempo di commutazione</td><td class="num">&lt; 1 s</td><td class="why">Il taglio pulito resta del mixer, ma l'attesa dev'essere prevedibile</td></tr>
+          <tr><td>Ripartenza dopo un riavvio</td><td class="num">&lt; 5 s, stato IDLE</td><td class="why">Nessuna poltrona fantasma in onda dopo un guasto</td></tr>
+          <tr><td>Rilevazione poltrona offline</td><td class="num">6 s</td><td class="why">La regia deve sapere che una postazione è muta prima di darle la parola</td></tr>
+          <tr><td>Guasto di una periferica</td><td class="num">0 impatto sulla diretta</td><td class="why">Timeout breve, errore in dashboard, sequenza che prosegue</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Guardrail</span>
+      <div>
+        <h2>Cosa non si tocca, mai</h2>
+        <p>
+          Non sono preferenze tecniche: sono le regole che rendono il sistema utilizzabile in
+          diretta. Qualunque release le violi va riprogettata, anche se il committente la chiede.
+        </p>
+      </div>
+    </div>
+    <div class="rules">
+      <div class="rule"><span class="k">01</span><p>La chiusura di un intervento è sempre e solo manuale. Nessuna funzione nuova — nessun timer, nessuna automazione, nessun evento del mondo virtuale — può mandare qualcuno fuori onda.</p></div>
+      <div class="rule"><span class="k">02</span><p>Una sola sorgente in onda per ogni uscita. Quando le uscite diventeranno molte, la regola vale per ciascuna: non diventa mai "molte sorgenti su una".</p></div>
+      <div class="rule"><span class="k">03</span><p>Ogni periferica ha un timeout breve e degrada da sola. La diretta non dipende mai da una luce, da uno switcher o da una piattaforma di terzi che non risponde.</p></div>
+      <div class="rule"><span class="k">04</span><p>Niente sul percorso critico dipende da internet. Cloud, mondi virtuali e ospiti remoti stanno tutti fuori dal perimetro che deve reggere a rete staccata.</p></div>
+      <div class="rule"><span class="k">05</span><p>Il feed pulito non mostra mai testo, avvisi o interfaccia. Qualunque segnalazione va alla regia: quello che il mixer riceve è solo l'immagine dell'ospite.</p></div>
+      <div class="rule"><span class="k">06</span><p>Il display della poltrona non decide mai da solo: ogni cambio di schermata arriva dal server, e l'ospite vede "sei in onda" solo dopo che l'uscita lo sta davvero trasmettendo.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Da decidere</span>
+      <div>
+        <h2>Quattro domande prima di stimare</h2>
+        <p>
+          Le risposte cambiano l'ordine delle release e il loro costo, non i loro contenuti.
+          Sono le uniche cose che non possiamo decidere da soli.
+        </p>
+      </div>
+    </div>
+    <div class="questions">
+      <div class="q">
+        <span class="k">Q1</span>
+        <div>
+          <h3>"Multi-device" significa quale delle tre cose?</h3>
+          <p>Più dispositivi per gli ospiti, più superfici di comando per la regia, o più uscite verso destinazioni diverse. Sono tre lavori distinti con costi diversi: R3 le contiene tutte, ma non devono partire insieme.</p>
+        </div>
+      </div>
+      <div class="q">
+        <span class="k">Q2</span>
+        <div>
+          <h3>L'HQ in Voxels è una vetrina o un luogo dove si interviene?</h3>
+          <p>Mostrare il programma dentro il mondo è un'uscita in più. Far chiedere la parola a un avatar è un partecipante in più, con l'audio e la moderazione che ne conseguono. La prima si fa in fretta, la seconda cambia la puntata.</p>
+        </div>
+      </div>
+      <div class="q">
+        <span class="k">Q3</span>
+        <div>
+          <h3>Gli ospiti remoti sono in programma?</h3>
+          <p>Se sì, accettiamo esplicitamente un'eccezione al vincolo "zero internet", confinata nel gateway. Meglio deciderlo adesso che scoprirlo in R4.</p>
+        </div>
+      </div>
+      <div class="q">
+        <span class="k">Q4</span>
+        <div>
+          <h3>Quante puntate al mese, e quante persone in regia?</h3>
+          <p>Decide se l'arruolamento dei dispositivi e i permessi servono davvero o sono complessità inutile. Sette kiosk fissi e un operatore non hanno gli stessi bisogni di tre studi e sei persone.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      Roadmap del sistema di richiesta parola per studio TV. R1 è in esercizio; i numeri della
+      sezione Misure sono rilevati sull'impianto attuale, non stimati. Le release successive
+      sono proposte: nessuna è stata ancora messa in produzione.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

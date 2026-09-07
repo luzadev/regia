@@ -119,6 +119,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 - `countdown_default_s: null` = un `grant` senza `countdown_s` apre un LIVE **senza** countdown.
 - **NDI Studio Monitor**: si comanda con un POST JSON su `/v1/configuration` — `{"version":1,"NDI_source":"MACCHINA (Stream)"}` per commutare, `"NDI_source":""` per il nero. `/v1/sources` elenca le sorgenti viste in rete (`npm run ndi:sources`). **La prima finestra di Studio Monitor ascolta sulla porta 80, la seconda sulla 81**, ecc.: `ndi_monitor_url` deve puntare alla finestra che sta sull'uscita HDMI pulita. Percorso, nome del campo e versione API restano configurabili (`ndi_config_path`, `ndi_source_field`, `ndi_api_version`) per eventuali build diverse; `ndi_monitor_auth` accetta `{ "user": "...", "password": "..." }` se l'interfaccia è protetta.
 - `control_token: null` disattiva l'autenticazione (LAN chiusa). Se valorizzato, il ruolo `control` deve presentarlo nell'`hello` e negli endpoint HTTP (header `X-Control-Token`).
+- **Poltrone dalla dashboard**: `stations` si può modificare anche dalla regia (aggiungi/rimuovi a caldo, senza riavvio). Il server riscrive `config.json` in modo atomico tenendo una copia in `config.json.bak`, quindi il file resta l'unica fonte di verità. Una poltrona **in onda non è rimovibile**: prima si chiude l'intervento.
 - **Nomi ospite**: si impostano dalla dashboard a inizio puntata e vivono in memoria, ma vengono salvati in `names_path` e ricaricati al boot, così un riavvio a metà puntata non li perde. Sono l'unico dato persistente oltre al log.
 
 ## 7. Protocollo WebSocket
@@ -138,6 +139,8 @@ control → server : { "type": "countdown_set",    "station": "post-03", "second
 control → server : { "type": "countdown_adjust", "station": "post-03", "delta_s": 30 }  // +/- 30 s, calcolato dal server
 control → server : { "type": "set_name", "station": "post-03", "name": "Rossi" }
 control → server : { "type": "manual_mode", "enabled": true }
+control → server : { "type": "add_station", "station": { "id": "post-08", "label": "Poltrona 8", "wled_segment": 7, "relay_url": "..." } }
+control → server : { "type": "remove_station", "station": "post-08" }
 server → tutti   : { "type": "state_sync", ... }   // stato completo: idempotente, a ogni cambiamento e a ogni connessione
 server → tutti   : { "type": "heartbeat", "t": <epoch_ms> }  // ogni heartbeat_interval_ms
 server → mittente: { "type": "error", "code": "...", "message": "..." }  // comando rifiutato

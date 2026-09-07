@@ -91,12 +91,71 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
 .presets, .adjust { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 #btn-close { padding: 22px; font-size: 22px; }
 
+/* Adding a station from the dashboard: the form stays folded away until asked,
+   so the panel keeps reading as a status board. */
+.add-toggle { padding: 6px 12px; font-size: 13px; margin-bottom: 12px; }
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.add-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.add-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 180px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.add-form input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.add-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.add-hint { font-size: 12px; color: var(--muted); }
+
+.card .id {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+.card .id:hover { color: var(--text); text-decoration: underline; }
+.card .remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 7px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+}
+.card .remove:hover { color: var(--red); border-color: var(--line); }
+.card .remove.confirm { color: #fff; background: var(--red); border-color: transparent; font-size: 11px; font-weight: 700; }
+
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-.card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.card { position: relative; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .card.live { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 .card.requested { border-color: var(--amber); }
 .card.disconnected { opacity: 0.55; }
-.card .head { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.card .head { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; padding-right: 28px; }
 .card .label { font-weight: 700; font-size: 15px; }
 .card input {
   width: 100%;

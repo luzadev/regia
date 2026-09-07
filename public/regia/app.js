@@ -261,6 +261,19 @@
   }
 
   function renderGrid(snap) {
+    // Stations can now be added and removed while the show runs: drop the cards
+    // of the ones that are gone before updating the rest.
+    var present = {};
+    snap.stations.forEach(function (s) {
+      present[s.id] = true;
+    });
+    Object.keys(cards).forEach(function (id) {
+      if (!present[id]) {
+        cards[id].root.remove();
+        delete cards[id];
+      }
+    });
+
     snap.stations.forEach(function (s) {
       var card = cards[s.id] || createCard(s);
       card.root.className = 'card ' + s.state.toLowerCase() + (s.connected ? '' : ' disconnected');
@@ -305,6 +318,39 @@
     head.appendChild(label);
     head.appendChild(badges);
 
+    var idLink = document.createElement('a');
+    idLink.className = 'id';
+    idLink.textContent = s.id;
+    idLink.href = '/poltrona/?id=' + encodeURIComponent(s.id);
+    idLink.target = '_blank';
+    idLink.rel = 'noopener';
+    idLink.title = 'Apri la pagina di questa poltrona';
+
+    // Two steps rather than a browser dialog: a modal in the control room
+    // blocks everything else while someone is on air.
+    var remove = document.createElement('button');
+    remove.className = 'remove';
+    remove.textContent = '\u00d7';
+    remove.title = 'Rimuovi questa poltrona';
+    var armed = null;
+    remove.addEventListener('click', function () {
+      if (armed) {
+        clearTimeout(armed);
+        armed = null;
+        remove.classList.remove('confirm');
+        remove.textContent = '\u00d7';
+        bridge.send({ type: 'remove_station', station: s.id });
+        return;
+      }
+      remove.classList.add('confirm');
+      remove.textContent = 'Rimuovere?';
+      armed = setTimeout(function () {
+        armed = null;
+        remove.classList.remove('confirm');
+        remove.textContent = '\u00d7';
+      }, 4000);
+    });
+
     var name = document.createElement('input');
     name.type = 'text';
     name.placeholder = 'Nome ospite';
@@ -336,13 +382,69 @@
     actions.appendChild(stop);
 
     root.appendChild(head);
+    root.appendChild(idLink);
     root.appendChild(name);
     root.appendChild(actions);
+    root.appendChild(remove);
     el.grid.appendChild(root);
 
     cards[s.id] = { root: root, state: state, link: link, cam: cam, name: name, go: go, stop: stop };
     return cards[s.id];
   }
+
+  // --- adding a station -------------------------------------------------
+
+  var addForm = document.getElementById('add-station');
+  var addToggle = document.getElementById('btn-add-station');
+  var newId = document.getElementById('new-id');
+  var newLabel = document.getElementById('new-label');
+  var newSegment = document.getElementById('new-segment');
+  var newRelay = document.getElementById('new-relay');
+
+  /** Suggests the next free id and label, so the common case is one click. */
+  function suggestStation() {
+    var snap = bridge.snapshot;
+    var used = {};
+    var highest = 0;
+    if (snap) {
+      snap.stations.forEach(function (s) {
+        used[s.id] = true;
+        var m = /^post-(\d+)$/.exec(s.id);
+        if (m) highest = Math.max(highest, parseInt(m[1], 10));
+      });
+    }
+    var n = highest + 1;
+    while (used['post-' + (n < 10 ? '0' : '') + n]) n++;
+    newId.value = 'post-' + (n < 10 ? '0' : '') + n;
+    newLabel.value = 'Poltrona ' + n;
+    newSegment.value = snap ? String(snap.stations.length) : '';
+    newRelay.value = '';
+  }
+
+  addToggle.addEventListener('click', function () {
+    var opening = addForm.hidden;
+    addForm.hidden = !opening;
+    addToggle.textContent = opening ? 'Chiudi' : '+ Aggiungi poltrona';
+    if (opening) {
+      suggestStation();
+      newId.focus();
+    }
+  });
+
+  document.getElementById('btn-add-cancel').addEventListener('click', function () {
+    addForm.hidden = true;
+    addToggle.textContent = '+ Aggiungi poltrona';
+  });
+
+  addForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var station = { id: newId.value.trim().toLowerCase(), label: newLabel.value.trim() };
+    if (newSegment.value !== '') station.wled_segment = parseInt(newSegment.value, 10);
+    if (newRelay.value.trim()) station.relay_url = newRelay.value.trim();
+    bridge.send({ type: 'add_station', station: station });
+    addForm.hidden = true;
+    addToggle.textContent = '+ Aggiungi poltrona';
+  });
 
   function toast(msg) {
     el.toast.textContent = msg.message || msg.code;
