@@ -95,3 +95,10 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
   border-radius: 999px;
   z-index: 10;
 }
+
+/* Server unreachable: the panels show a frozen snapshot, so dim them and take
+   the controls out of reach until the link is back. */
+body.link-down .panel { opacity: 0.45; }
+body.link-down .panel button,
+body.link-down .panel input,
+body.link-down .panel select { pointer-events: none; }

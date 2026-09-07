@@ -112,6 +112,9 @@
 
   function onLink(up) {
     el.bannerOffline.hidden = up;
+    // While the link is down the page shows the last known state: freeze it and
+    // block the controls, so nobody clicks Autorizza into a closed socket.
+    document.body.classList.toggle('link-down', !up);
     render();
   }
 
@@ -315,7 +318,7 @@
 
   // Local ticking for waiting times and the live countdown.
   setInterval(function () {
-    if (!bridge.snapshot) return;
+    if (!bridge.snapshot || !bridge.online) return;
     renderLive();
     el.queue.querySelectorAll('.wait').forEach(function (w) {
       w.textContent = formatClock((bridge.serverNow() - Number(w.dataset.since)) / 1000);
