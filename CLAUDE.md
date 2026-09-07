@@ -87,6 +87,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
   "bind_host": "0.0.0.0",
   "http_port": 8080,
   "control_token": null,
+  "tls": { "cert": "certs/server.crt", "key": "certs/server.key" },
   "stations": [
     { "id": "post-01", "label": "Poltrona 1", "ndi_source": "POLTRONA-1",
       "wled_segment": 0, "relay_url": "http://192.168.10.41/relay/0" }
@@ -118,6 +119,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 - I driver si scelgono da config: `video_driver` (`mock` | `ndi`), `lights_driver` (`mock` | `wled`), `relay_driver` (`mock` | `shelly`). Luci e relè sono due driver distinti perché sono due impianti distinti.
 - `countdown_default_s: null` = un `grant` senza `countdown_s` apre un LIVE **senza** countdown.
 - **NDI Studio Monitor**: si comanda con un POST JSON su `/v1/configuration` — `{"version":1,"NDI_source":"MACCHINA (Stream)"}` per commutare, `"NDI_source":""` per il nero. `/v1/sources` elenca le sorgenti viste in rete (`npm run ndi:sources`). **La prima finestra di Studio Monitor ascolta sulla porta 80, la seconda sulla 81**, ecc.: `ndi_monitor_url` deve puntare alla finestra che sta sull'uscita HDMI pulita. Percorso, nome del campo e versione API restano configurabili (`ndi_config_path`, `ndi_source_field`, `ndi_api_version`) per eventuali build diverse; `ndi_monitor_auth` accetta `{ "user": "...", "password": "..." }` se l'interfaccia è protetta.
+- **`tls`**: i browser espongono webcam, microfono e `RTCPeerConnection` **solo in contesto sicuro** (`https://` o `http://localhost`), quindi con le poltrone su altre macchine l'HTTPS è necessario, non opzionale. `npm run cert` genera un certificato auto-firmato per `localhost`, il nome macchina e tutti gli IP di rete. `tls: null` = HTTP, e le poltrone hanno la webcam solo su localhost. Un certificato mancante o illeggibile non ferma il server: riparte in HTTP con un avviso.
 - `control_token: null` disattiva l'autenticazione (LAN chiusa). Se valorizzato, il ruolo `control` deve presentarlo nell'`hello` e negli endpoint HTTP (header `X-Control-Token`).
 - **Poltrone dalla dashboard**: `stations` si può modificare anche dalla regia (aggiungi/rimuovi a caldo, senza riavvio). Il server riscrive `config.json` in modo atomico tenendo una copia in `config.json.bak`, quindi il file resta l'unica fonte di verità. Una poltrona **in onda non è rimovibile**: prima si chiude l'intervento.
 - **Nomi ospite**: si impostano dalla dashboard a inizio puntata e vivono in memoria, ma vengono salvati in `names_path` e ricaricati al boot, così un riavvio a metà puntata non li perde. Sono l'unico dato persistente oltre al log.

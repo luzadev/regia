@@ -89,6 +89,18 @@
 
   StationPublisher.prototype.start = function () {
     var self = this;
+    // Browsers only hand over camera and microphone in a secure context:
+    // https, or http://localhost. Over plain http to an IP address the API is
+    // not even defined, which looks like a broken page unless we say why.
+    if (!window.isSecureContext) {
+      return this.fail(
+        'il browser blocca webcam e microfono su ' +
+          location.protocol +
+          '//' +
+          location.host +
+          ' — serve HTTPS (vedi README)'
+      );
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return this.fail('Questo browser non espone webcam e microfono');
     }

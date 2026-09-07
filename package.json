@@ -14,6 +14,7 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "sim": "node scripts/sim.js",
+    "cert": "node scripts/make-cert.js",
     "test": "node --test test/*.test.js",
     "ndi:sources": "node scripts/ndi-sources.js"
   },

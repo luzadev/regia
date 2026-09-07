@@ -35,6 +35,7 @@ Il server stampa gli indirizzi utili all'avvio:
 | Campo | Significato |
 | --- | --- |
 | `bind_host`, `http_port` | interfaccia e porta di ascolto |
+| `tls` | `{ "cert": …, "key": … }` per servire in HTTPS; `null` = HTTP (webcam solo su localhost) |
 | `control_token` | se valorizzato, la dashboard deve presentarlo; `null` = LAN aperta |
 | `stations[]` | id, etichetta, sorgente NDI, segmento WLED e URL del relè per ogni poltrona |
 | `video_driver` | `webrtc` (predefinito), `ndi` o `mock` |
@@ -150,6 +151,46 @@ sinistra; senza `?debug=1` la pagina è nera e basta, come dev'essere un feed pu
 
 L'audio esce dal dispositivo audio predefinito di Windows: per farlo viaggiare dentro l'HDMI
 verso il mixer, imposta come predefinita l'uscita audio HDMI di quel monitor.
+
+### HTTPS: perché serve, non è un optional
+
+I browser consegnano webcam e microfono **solo in contesto sicuro**: `https://`, oppure
+`http://localhost`. Da un'altra macchina, su `http://192.168.x.x:8080`, `navigator.mediaDevices`
+non esiste proprio e la poltrona scrive a schermo *«il browser blocca webcam e microfono …»*.
+Vale anche per `RTCPeerConnection`, quindi riguarda poltrone, feed e anteprima di regia.
+
+Due strade, entrambe supportate.
+
+**1. HTTPS (consigliata, funziona con qualunque dispositivo)**
+
+```bash
+npm run cert          # certificato per localhost, nome macchina e tutti gli IP di rete
+```
+
+poi in `config.json`:
+
+```json
+"tls": { "cert": "certs/server.crt", "key": "certs/server.key" }
+```
+
+Riavvia: tutto passa a `https://`. Il certificato è auto-firmato, quindi la **prima** volta
+ogni dispositivo mostra un avviso (*Avanzate → Procedi*); per non vederlo più, installa
+`certs/server.crt` tra le autorità attendibili di quel dispositivo. `npm run cert` accetta
+anche indirizzi o nomi aggiuntivi: `npm run cert -- 192.168.10.10 regia.local`.
+
+Se il certificato manca o è illeggibile il server **non si ferma**: riparte in HTTP
+avvisando sulla console, perché un certificato scaduto non deve impedire una puntata.
+
+**2. Flag di Chromium sui kiosk (nessun certificato)**
+
+```
+chromium --kiosk --unsafely-treat-insecure-origin-as-secure="http://192.168.10.10:8080" \
+         --user-data-dir=C:\regia-kiosk "http://192.168.10.10:8080/poltrona/?id=post-01"
+```
+
+Più rapida su sette macchine identiche che controlli tu, ma vale solo per i browser avviati
+con quel flag: il tablet di un ospite resterebbe fuori. In azienda si può fare lo stesso con
+il criterio `OverrideSecurityRestrictionsOnInsecureOrigin`.
 
 ### Permessi webcam sulle poltrone
 

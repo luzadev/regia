@@ -3,6 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const https = require('https');
+const os = require('os');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 
@@ -206,7 +208,42 @@ async function resyncDrivers() {
 // --- websocket hub ------------------------------------------------------
 
 const app = express();
-const server = http.createServer(app);
+
+/**
+ * HTTPS is optional but usually necessary: browsers only expose webcam and
+ * microphone in a secure context, and http://<ip> is not one. Without TLS the
+ * stations work over http://localhost only. A broken certificate must never
+ * stop the show, so a failure here falls back to plain HTTP with a loud notice.
+ */
+function loadTls() {
+  const tls = config.tls;
+  if (!tls || !tls.cert || !tls.key) return null;
+  try {
+    return {
+      cert: fs.readFileSync(path.resolve(ROOT, tls.cert)),
+      key: fs.readFileSync(path.resolve(ROOT, tls.key))
+    };
+  } catch (e) {
+    console.error(`[tls] certificato non caricabile (${e.message}): parto in HTTP`);
+    log.event('tls_error', { message: e.message });
+    return null;
+  }
+}
+
+const tlsOptions = loadTls();
+const server = tlsOptions ? https.createServer(tlsOptions, app) : http.createServer(app);
+const scheme = tlsOptions ? 'https' : 'http';
+
+/** LAN addresses, so the startup log shows the URL to open on the stations. */
+function lanAddresses() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const net of list || []) {
+      if (net.family === 'IPv4' && !net.internal) out.push(net.address);
+    }
+  }
+  return out;
+}
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 /** All authenticated sockets. Station sockets also live in `stationSockets`. */
@@ -594,10 +631,15 @@ app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
 
 server.listen(config.http_port || 8080, config.bind_host || '0.0.0.0', () => {
   const addr = server.address();
-  console.log(`[regia] in ascolto su http://${addr.address}:${addr.port}`);
-  console.log(`[regia] dashboard: http://localhost:${addr.port}/regia/`);
-  console.log(`[regia] poltrona:  http://localhost:${addr.port}/poltrona/?id=${config.stations[0].id}`);
-  console.log(`[regia] feed:      http://localhost:${addr.port}/feed/`);
+  const host = lanAddresses()[0] || 'localhost';
+  console.log(`[regia] in ascolto su ${scheme}://${addr.address}:${addr.port}`);
+  console.log(`[regia] dashboard: ${scheme}://localhost:${addr.port}/regia/`);
+  console.log(`[regia] feed:      ${scheme}://localhost:${addr.port}/feed/`);
+  console.log(`[regia] poltrona:  ${scheme}://${host}:${addr.port}/poltrona/?id=${config.stations[0].id}`);
+  if (!tlsOptions) {
+    console.log('[regia] ATTENZIONE: senza HTTPS le poltrone hanno webcam e microfono solo su localhost.');
+    console.log('[regia]             genera un certificato con "npm run cert" (vedi README).');
+  }
   console.log(`[regia] driver: video=${video.name} lights=${lights.name} relay=${relay.name}`);
   log.event('server_start', { port: addr.port, stations: studio.list().length });
 

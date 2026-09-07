@@ -23,7 +23,12 @@ function arg(name, fallback) {
   return i === -1 ? fallback : argv[i + 1];
 }
 const auto = argv.includes('--auto');
-const url = arg('--url', `ws://localhost:${config.http_port || 8080}/ws`);
+// The server speaks wss when TLS is configured, and its certificate is
+// self-signed on purpose: accept it here rather than making the operator
+// install a CA to run the simulator.
+const secure = !!(config.tls && config.tls.cert && config.tls.key);
+const url = arg('--url', `${secure ? 'wss' : 'ws'}://localhost:${config.http_port || 8080}/ws`);
+const wsOptions = url.startsWith('wss:') ? { rejectUnauthorized: false } : {};
 const ids = arg('--stations', '')
   ? arg('--stations', '').split(',').map((s) => s.trim()).filter(Boolean)
   : config.stations.map((s) => s.id);
@@ -33,7 +38,7 @@ console.log(`[sim] ${ids.length} poltrone -> ${url}${auto ? ' (richieste automat
 for (const id of ids) connect(id);
 
 function connect(id) {
-  const ws = new WebSocket(url);
+  const ws = new WebSocket(url, wsOptions);
   let state = null;
   let timer = null;
 

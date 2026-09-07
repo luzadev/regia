@@ -2,6 +2,10 @@
   "bind_host": "0.0.0.0",
   "http_port": 8080,
   "control_token": null,
+  "tls": {
+    "cert": "certs/server.crt",
+    "key": "certs/server.key"
+  },
   "stations": [
     {
       "id": "post-01",
