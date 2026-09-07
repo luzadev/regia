@@ -4,7 +4,7 @@ Software per lo studio con 7 poltrone ospiti: le poltrone chiedono la parola da 
 la regia vede la coda e autorizza, il server commuta il feed video verso il mixer e accende
 le luci della postazione.
 
-Stato: **M1 completata** (core loop con driver mock). M2 (video NDI), M3 (luci WLED/relè) e
+Stato: **M1 e M2 completate** (core loop + driver video NDI). M3 (luci WLED/relè) e
 M4 (endpoint Stream Deck, pagina `/log`, deploy) non sono ancora implementate.
 
 ## Requisiti
@@ -81,6 +81,41 @@ la pagina `/log` di M4 leggerà da qui.
 ```bash
 tail -f data/events.jsonl
 ```
+
+## Driver video NDI (M2)
+
+Per commutare davvero il feed, in `config.json`:
+
+```json
+"video_driver": "ndi",
+"ndi_monitor_url": "http://127.0.0.1:81",
+"ndi_connect_path": "/v1/connect?name={source}",
+"ndi_disconnect_path": "/v1/disconnect",
+"ndi_monitor_auth": null
+```
+
+Il driver chiama `ndi_connect_path` con la `ndi_source` della poltrona autorizzata e
+`ndi_disconnect_path` quando non c'è nessuno in onda (feed a nero, anche all'avvio del
+server e alla chiusura del processo).
+
+**Attenzione ai percorsi**: l'interfaccia web di NDI Studio Monitor è cambiata tra le
+versioni, quindi i due percorsi sono *template configurabili*, non costanti nel codice.
+I valori sopra sono il default; se la tua versione usa uno schema diverso, cambia le due
+stringhe in `config.json` senza toccare il codice. Segnaposto disponibili: `{source}`
+(nome NDI codificato per URL) e `{source_plain}`. Se l'interfaccia richiede autenticazione,
+valorizza `ndi_monitor_auth` con `{ "user": "...", "password": "..." }`.
+
+Per capire quale schema usa la tua installazione, apri l'interfaccia web di Studio Monitor
+nel browser e guarda le richieste che partono quando cambi sorgente a mano.
+
+### Tolleranza ai guasti
+
+Se Studio Monitor non risponde entro `driver_timeout_ms`:
+
+- l'errore finisce nel log (`driver_video_error`) e sulla console;
+- la dashboard mostra il banner ambra **DRIVER IN ERRORE — VIDEO: …**;
+- **il resto continua**: la poltrona va comunque in onda, il countdown parte, le luci si
+  accendono e la coda funziona. Alla prima chiamata riuscita il banner sparisce da solo.
 
 ## Modalità manuale
 

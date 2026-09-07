@@ -409,6 +409,16 @@ server.listen(config.http_port || 8080, config.bind_host || '0.0.0.0', () => {
   console.log(`[regia] poltrona:  http://localhost:${addr.port}/poltrona/?id=${config.stations[0].id}`);
   console.log(`[regia] driver: video=${video.name} lights=${lights.name} relay=${relay.name}`);
   log.event('server_start', { port: addr.port, stations: studio.list().length });
+
+  // Fail-safe on boot: the feed at rest is black and every light is off. Going
+  // through the driver wrapper means an unreachable Studio Monitor shows up in
+  // the dashboard banner immediately, instead of at the first grant.
+  enqueue(async () => {
+    await callDriver('video', 'boot black', () => video.setSource(null));
+    await syncLights();
+    for (const st of studio.list()) await callDriver('relay', `boot off ${st.id}`, () => relay.set(st, false));
+    broadcast();
+  });
 });
 
 // Fail-safe: the feed at rest is black, including on the way out.

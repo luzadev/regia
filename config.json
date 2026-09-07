@@ -3,30 +3,101 @@
   "http_port": 8080,
   "control_token": null,
   "stations": [
-    { "id": "post-01", "label": "Poltrona 1", "ndi_source": "POLTRONA-1", "wled_segment": 0, "relay_url": "http://192.168.10.41/relay/0" },
-    { "id": "post-02", "label": "Poltrona 2", "ndi_source": "POLTRONA-2", "wled_segment": 1, "relay_url": "http://192.168.10.42/relay/0" },
-    { "id": "post-03", "label": "Poltrona 3", "ndi_source": "POLTRONA-3", "wled_segment": 2, "relay_url": "http://192.168.10.43/relay/0" },
-    { "id": "post-04", "label": "Poltrona 4", "ndi_source": "POLTRONA-4", "wled_segment": 3, "relay_url": "http://192.168.10.44/relay/0" },
-    { "id": "post-05", "label": "Poltrona 5", "ndi_source": "POLTRONA-5", "wled_segment": 4, "relay_url": "http://192.168.10.45/relay/0" },
-    { "id": "post-06", "label": "Poltrona 6", "ndi_source": "POLTRONA-6", "wled_segment": 5, "relay_url": "http://192.168.10.46/relay/0" },
-    { "id": "post-07", "label": "Poltrona 7", "ndi_source": "POLTRONA-7", "wled_segment": 6, "relay_url": "http://192.168.10.47/relay/0" }
+    {
+      "id": "post-01",
+      "label": "Poltrona 1",
+      "ndi_source": "POLTRONA-1",
+      "wled_segment": 0,
+      "relay_url": "http://192.168.10.41/relay/0"
+    },
+    {
+      "id": "post-02",
+      "label": "Poltrona 2",
+      "ndi_source": "POLTRONA-2",
+      "wled_segment": 1,
+      "relay_url": "http://192.168.10.42/relay/0"
+    },
+    {
+      "id": "post-03",
+      "label": "Poltrona 3",
+      "ndi_source": "POLTRONA-3",
+      "wled_segment": 2,
+      "relay_url": "http://192.168.10.43/relay/0"
+    },
+    {
+      "id": "post-04",
+      "label": "Poltrona 4",
+      "ndi_source": "POLTRONA-4",
+      "wled_segment": 3,
+      "relay_url": "http://192.168.10.44/relay/0"
+    },
+    {
+      "id": "post-05",
+      "label": "Poltrona 5",
+      "ndi_source": "POLTRONA-5",
+      "wled_segment": 4,
+      "relay_url": "http://192.168.10.45/relay/0"
+    },
+    {
+      "id": "post-06",
+      "label": "Poltrona 6",
+      "ndi_source": "POLTRONA-6",
+      "wled_segment": 5,
+      "relay_url": "http://192.168.10.46/relay/0"
+    },
+    {
+      "id": "post-07",
+      "label": "Poltrona 7",
+      "ndi_source": "POLTRONA-7",
+      "wled_segment": 6,
+      "relay_url": "http://192.168.10.47/relay/0"
+    }
   ],
   "video_driver": "mock",
   "lights_driver": "mock",
   "relay_driver": "mock",
   "ndi_monitor_url": "http://127.0.0.1:81",
+  "ndi_connect_path": "/v1/connect?name={source}",
+  "ndi_disconnect_path": "/v1/disconnect",
+  "ndi_monitor_auth": null,
   "wled_url": "http://192.168.10.31",
   "driver_timeout_ms": 1500,
   "heartbeat_interval_ms": 2000,
   "station_offline_timeout_ms": 6000,
   "denied_duration_s": 5,
-  "countdown_presets_s": [30, 60, 120, 300],
+  "countdown_presets_s": [
+    30,
+    60,
+    120,
+    300
+  ],
   "countdown_default_s": null,
   "log_path": "data/events.jsonl",
   "names_path": "data/names.json",
   "colors": {
-    "requested": { "rgb": [255, 170, 0], "effect": "blink" },
-    "live": { "rgb": [255, 0, 0], "effect": "solid" },
-    "idle": { "rgb": [0, 0, 0], "effect": "off" }
+    "requested": {
+      "rgb": [
+        255,
+        170,
+        0
+      ],
+      "effect": "blink"
+    },
+    "live": {
+      "rgb": [
+        255,
+        0,
+        0
+      ],
+      "effect": "solid"
+    },
+    "idle": {
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "effect": "off"
+    }
   }
 }
