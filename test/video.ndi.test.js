@@ -13,12 +13,16 @@ function fakeMonitor(handler) {
   const respond =
     handler ||
     ((_req, res) => {
-      res.writeHead(200);
-      res.end('ok');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"ok":true}');
     });
   const server = http.createServer((req, res) => {
-    requests.push({ url: req.url, auth: req.headers.authorization });
-    respond(req, res);
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      requests.push({ method: req.method, url: req.url, body, auth: req.headers.authorization });
+      respond(req, res);
+    });
   });
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () =>
@@ -37,25 +41,30 @@ function fakeMonitor(handler) {
 
 const station = (ndiSource) => ({ id: 'post-03', config: { ndi_source: ndiSource } });
 
-test('connect asks Studio Monitor for the station source, URL-encoded', async () => {
+test('a grant posts the NDI source name to /v1/configuration', async () => {
   const monitor = await fakeMonitor();
   const driver = create({ ndi_monitor_url: monitor.url }, noopLog);
 
-  await driver.setSource(station('STUDIO (POLTRONA 3)'));
+  await driver.setSource(station('REGIA-PC (POLTRONA 3)'));
 
   assert.equal(monitor.requests.length, 1);
-  assert.equal(monitor.requests[0].url, '/v1/connect?name=STUDIO%20(POLTRONA%203)');
-  assert.equal(driver.current, 'STUDIO (POLTRONA 3)');
+  assert.equal(monitor.requests[0].method, 'POST');
+  assert.equal(monitor.requests[0].url, '/v1/configuration');
+  assert.deepEqual(JSON.parse(monitor.requests[0].body), {
+    version: 1,
+    NDI_source: 'REGIA-PC (POLTRONA 3)'
+  });
+  assert.equal(driver.current, 'REGIA-PC (POLTRONA 3)');
   await monitor.close();
 });
 
-test('setSource(null) disconnects, so the feed at rest is black', async () => {
+test('setSource(null) posts an empty source, so the feed at rest is black', async () => {
   const monitor = await fakeMonitor();
   const driver = create({ ndi_monitor_url: monitor.url }, noopLog);
 
   await driver.setSource(null);
 
-  assert.equal(monitor.requests[0].url, '/v1/disconnect');
+  assert.deepEqual(JSON.parse(monitor.requests[0].body), { version: 1, NDI_source: '' });
   assert.equal(driver.current, null);
   await monitor.close();
 });
@@ -66,26 +75,26 @@ test('the station id is used when ndi_source is not configured', async () => {
 
   await driver.setSource({ id: 'post-03', config: {} });
 
-  assert.equal(monitor.requests[0].url, '/v1/connect?name=post-03');
+  assert.equal(JSON.parse(monitor.requests[0].body).NDI_source, 'post-03');
   await monitor.close();
 });
 
-test('paths are templates, so another Studio Monitor version needs no code change', async () => {
+test('path, field and api version stay configurable for other Studio Monitor builds', async () => {
   const monitor = await fakeMonitor();
   const driver = create(
     {
       ndi_monitor_url: monitor.url + '/',
-      ndi_connect_path: '/v1/switch?src={source}&plain={source_plain}',
-      ndi_disconnect_path: '/v1/black'
+      ndi_config_path: '/v2/config',
+      ndi_source_field: 'NDI_overlay',
+      ndi_api_version: 2
     },
     noopLog
   );
 
   await driver.setSource(station('CAM-3'));
-  await driver.setSource(null);
 
-  assert.equal(monitor.requests[0].url, '/v1/switch?src=CAM-3&plain=CAM-3');
-  assert.equal(monitor.requests[1].url, '/v1/black');
+  assert.equal(monitor.requests[0].url, '/v2/config');
+  assert.deepEqual(JSON.parse(monitor.requests[0].body), { version: 2, NDI_overlay: 'CAM-3' });
   await monitor.close();
 });
 
@@ -102,6 +111,18 @@ test('basic auth is sent when configured', async () => {
   await monitor.close();
 });
 
+test('sources() reads the list Studio Monitor can see', async () => {
+  const monitor = await fakeMonitor((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(req.url === '/v1/sources' ? '{"ndi_sources":["A","B"]}' : '{}');
+  });
+  const driver = create({ ndi_monitor_url: monitor.url }, noopLog);
+
+  assert.deepEqual(await driver.sources(), { ndi_sources: ['A', 'B'] });
+  assert.equal(monitor.requests[0].method, 'GET');
+  await monitor.close();
+});
+
 test('an error response is reported, not swallowed', async () => {
   const monitor = await fakeMonitor((_req, res) => {
     res.writeHead(500);
@@ -114,9 +135,8 @@ test('an error response is reported, not swallowed', async () => {
   await monitor.close();
 });
 
-test('an unreachable Studio Monitor fails fast within the driver timeout', async () => {
+test('a hung Studio Monitor fails fast within the driver timeout', async () => {
   const monitor = await fakeMonitor((_req, res) => {
-    // Never answers: this is the "Studio Monitor hung" case.
     setTimeout(() => res.end(), 10_000).unref();
   });
   const driver = create({ ndi_monitor_url: monitor.url, driver_timeout_ms: 200 }, noopLog);

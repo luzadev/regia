@@ -88,25 +88,34 @@ Per commutare davvero il feed, in `config.json`:
 
 ```json
 "video_driver": "ndi",
-"ndi_monitor_url": "http://127.0.0.1:81",
-"ndi_connect_path": "/v1/connect?name={source}",
-"ndi_disconnect_path": "/v1/disconnect",
+"ndi_monitor_url": "http://127.0.0.1:80",
+"ndi_config_path": "/v1/configuration",
+"ndi_sources_path": "/v1/sources",
 "ndi_monitor_auth": null
 ```
 
-Il driver chiama `ndi_connect_path` con la `ndi_source` della poltrona autorizzata e
-`ndi_disconnect_path` quando non c'è nessuno in onda (feed a nero, anche all'avvio del
-server e alla chiusura del processo).
+Il driver usa l'interfaccia HTTP documentata di Studio Monitor: un POST JSON su
+`/v1/configuration` con `{"version":1,"NDI_source":"MACCHINA (Stream)"}` per commutare e
+`"NDI_source":""` per il nero (a riposo, all'avvio del server e alla chiusura del processo).
 
-**Attenzione ai percorsi**: l'interfaccia web di NDI Studio Monitor è cambiata tra le
-versioni, quindi i due percorsi sono *template configurabili*, non costanti nel codice.
-I valori sopra sono il default; se la tua versione usa uno schema diverso, cambia le due
-stringhe in `config.json` senza toccare il codice. Segnaposto disponibili: `{source}`
-(nome NDI codificato per URL) e `{source_plain}`. Se l'interfaccia richiede autenticazione,
-valorizza `ndi_monitor_auth` con `{ "user": "...", "password": "..." }`.
+**La porta conta**: la *prima* finestra di Studio Monitor ascolta sulla **80**, la seconda
+sulla **81**, la terza sulla 82. `ndi_monitor_url` deve puntare alla finestra che sta a
+schermo intero sull'uscita HDMI verso il mixer. Se apri Studio Monitor una volta sola, è la 80.
 
-Per capire quale schema usa la tua installazione, apri l'interfaccia web di Studio Monitor
-nel browser e guarda le richieste che partono quando cambi sorgente a mano.
+Se una build diversa usasse un altro schema, si adattano `ndi_config_path`,
+`ndi_source_field` e `ndi_api_version` senza toccare il codice. `ndi_monitor_auth` accetta
+`{ "user": "...", "password": "..." }` se l'interfaccia è protetta.
+
+### Verificare i nomi delle sorgenti
+
+```bash
+npm run ndi:sources                                  # usa ndi_monitor_url da config.json
+npm run ndi:sources -- --url http://192.168.10.10:80
+```
+
+Elenca le sorgenti NDI viste da Studio Monitor e dice, per ogni poltrona, se la
+`ndi_source` configurata corrisponde a una sorgente realmente in rete. I nomi NDI hanno la
+forma `NOME-MACCHINA (Nome stream)` e vanno copiati esattamente.
 
 ### Tolleranza ai guasti
 

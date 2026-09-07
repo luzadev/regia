@@ -4,12 +4,15 @@
   "private": true,
   "description": "TV studio floor request system: station touch pages, control room dashboard, video/lights drivers",
   "main": "server/index.js",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "sim": "node scripts/sim.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "ndi:sources": "node scripts/ndi-sources.js"
   },
   "dependencies": {
     "express": "^4.21.2",
