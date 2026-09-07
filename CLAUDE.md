@@ -123,7 +123,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 
 ## 7. Protocollo WebSocket
 
-Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed", "station": "post-01", "token": "..." }`. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso): un kiosk ricaricato non resta bloccato.
+Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed", "station": "post-01", "token": "..." }`. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso con codice `4000`): un kiosk ricaricato non resta bloccato. Il client scalzato **non deve riconnettersi** — altrimenti le due finestre si scalzano a vicenda all'infinito — ma mostrare la view "POLTRONA APERTA ALTROVE" finché non viene ricaricato.
 
 ```
 station → server : { "type": "request_floor" }

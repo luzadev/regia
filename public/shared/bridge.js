@@ -13,6 +13,8 @@
     this.onLink = options.onLink || function () {};
     this.onError = options.onError || function () {};
     this.onMessage = options.onMessage || function () {};
+    this.onReplaced = options.onReplaced || function () {};
+    this.replaced = false;
 
     this.ws = null;
     this.offset = 0; // serverNow - Date.now(), so drifting kiosk clocks don't matter
@@ -73,8 +75,15 @@
       }
     };
 
-    ws.onclose = function () {
+    ws.onclose = function (ev) {
       self._setLink(false);
+      if (ev && ev.code === 4000) {
+        // Another window took this station over. Reconnecting would kick it
+        // back and both windows would flap forever: stop and say so instead.
+        self.replaced = true;
+        self.onReplaced();
+        return;
+      }
       self._retry();
     };
 

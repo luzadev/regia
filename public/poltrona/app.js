@@ -14,6 +14,7 @@
     live: document.getElementById('view-live'),
     denied: document.getElementById('view-denied'),
     offline: document.getElementById('view-offline'),
+    replaced: document.getElementById('view-replaced'),
     unknown: document.getElementById('view-unknown')
   };
   var ringFg = document.getElementById('ring-fg');
@@ -44,6 +45,9 @@
     onLink: render,
     onMessage: function (msg) {
       publisher.handle(msg);
+    },
+    onReplaced: function () {
+      show('replaced');
     },
     onError: function (msg) {
       if (msg.code === 'unknown_station') {
@@ -81,6 +85,7 @@
   });
 
   function render() {
+    if (bridge.replaced) return show('replaced');
     if (!bridge.online) return show('offline');
     var st = bridge.stationOf(stationId);
     if (!st) return show('offline');
