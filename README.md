@@ -554,4 +554,5 @@ immagine, quindi non esiste il caso "l'ospite parla ma il mixer riceve ancora ne
 
 ## Crediti
 
-**Luciano Zappacosta** — contributor.
+- **Luciano Zappacosta** — contributor
+- **Luza Dev** — contributor

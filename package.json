@@ -4,7 +4,8 @@
   "private": true,
   "description": "TV studio floor request system: station touch pages, control room dashboard, video/lights drivers",
   "contributors": [
-    "Luciano Zappacosta <info@zappacosta.eu>"
+    "Luciano Zappacosta <info@zappacosta.eu>",
+    "Luza Dev"
   ],
   "main": "server/index.js",
   "engines": {
