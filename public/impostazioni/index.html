@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impostazioni — luci e relè</title>
+<link rel="stylesheet" href="/shared/style.css">
+<link rel="stylesheet" href="/regia/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>IMPOSTAZIONI</h1>
+  <div class="banners">
+    <div id="banner-offline" class="banner red" hidden>SERVER NON RAGGIUNGIBILE — dati congelati, riconnessione in corso…</div>
+    <div id="banner-drivers" class="banner amber" hidden></div>
+    <div id="banner-saved" class="banner ok" hidden>Impostazioni salvate in config.json</div>
+  </div>
+  <a class="feed-link" href="/regia/">Torna alla regia</a>
+</header>
+
+<main class="settings">
+  <section class="panel">
+    <h2>Driver</h2>
+    <div class="fields">
+      <label>Luci
+        <select id="lights-driver">
+          <option value="mock">mock — logga soltanto</option>
+          <option value="wled">wled — controller reale</option>
+        </select>
+      </label>
+      <label>Barre LED
+        <select id="relay-driver">
+          <option value="mock">mock — logga soltanto</option>
+          <option value="shelly">shelly — relè HTTP</option>
+        </select>
+      </label>
+      <label>Timeout periferiche (ms)
+        <input id="driver-timeout" type="number" min="200" max="10000" step="100">
+      </label>
+    </div>
+    <p class="note">Oltre questo tempo la periferica è considerata guasta: si accende il banner in regia e la sequenza prosegue.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Controller WLED</h2>
+    <div class="fields">
+      <label class="wide">Indirizzo<input id="wled-url" type="url" placeholder="http://192.168.10.31"></label>
+      <label>Percorso API<input id="wled-path" type="text" placeholder="/json/state"></label>
+      <label>Effetto «fisso»<input id="fx-solid" type="number" min="0" max="199"></label>
+      <label>Effetto «lampeggiante»<input id="fx-blink" type="number" min="0" max="199"></label>
+    </div>
+    <p class="note">Gli id degli effetti cambiano tra le build di WLED: se il lampeggio non è quello giusto, si correggono qui senza toccare il codice.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Barre LED</h2>
+    <div class="fields">
+      <label class="wide">Accensione<input id="relay-on" type="text" placeholder="{url}?turn=on"></label>
+      <label class="wide">Spegnimento<input id="relay-off" type="text" placeholder="{url}?turn=off"></label>
+      <label>Utente<input id="relay-user" type="text" autocomplete="off"></label>
+      <label>Password<input id="relay-pass" type="password" autocomplete="off"></label>
+    </div>
+    <p class="note"><code>{url}</code> è l'indirizzo del relè della poltrona. Il default è Shelly gen 1; per la gen 2 usa <code>{url}/rpc/Switch.Set?id=0&amp;on=true</code>.</p>
+  </section>
+
+  <section class="panel full">
+    <h2>Colori di stato</h2>
+    <div id="colors" class="colors"></div>
+    <p class="note">A riposo si spegne solo il segmento della poltrona: il controller resta acceso e le altre spie non cambiano.</p>
+  </section>
+
+  <section class="panel full">
+    <h2>Poltrone</h2>
+    <div class="table-scroll">
+      <table class="stations">
+        <thead>
+          <tr><th>Poltrona</th><th>Segmento luci</th><th>URL relè</th><th>Prove</th></tr>
+        </thead>
+        <tbody id="stations"></tbody>
+      </table>
+    </div>
+    <p class="note">Le prove accendono la spia o la barra per due secondi e poi rimettono tutto com'era. Usano le impostazioni <strong>salvate</strong>, non quelle ancora da salvare, e non toccano una poltrona in onda.</p>
+  </section>
+</main>
+
+<div class="savebar">
+  <button id="save" class="primary">Salva impostazioni</button>
+  <span id="save-hint" class="save-hint">Scritte in config.json, applicate subito ai driver senza riavviare.</span>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/shared/bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

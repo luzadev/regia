@@ -36,6 +36,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   index.js            # entrypoint: http + ws + orchestrazione driver
   state.js            # macchina a stati e coda (nessuna I/O, testabile)
   feed.js             # hub WebRTC: quale poltrona sta sul feed, relay del signalling
+  settings.js         # validazione delle impostazioni modificabili a runtime
   drivers/
     video.mock.js     # driver video finto (logga soltanto)
     video.webrtc.js   # punta la pagina /feed/ sulla poltrona autorizzata (M2)
@@ -47,6 +48,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
 /public
   poltrona/           # pagina poltrona: /poltrona/?id=post-01
   regia/              # dashboard: /regia/
+  impostazioni/       # configurazione luci e relè: /impostazioni/
   feed/               # feed pulito verso il mixer: /feed/ (Chromium kiosk su HDMI 2)
   shared/             # css comune, client ws con riconnessione, WebRTC
 /scripts
@@ -145,6 +147,12 @@ control → server : { "type": "countdown_set",    "station": "post-03", "second
 control → server : { "type": "countdown_adjust", "station": "post-03", "delta_s": 30 }  // +/- 30 s, calcolato dal server
 control → server : { "type": "set_name", "station": "post-03", "name": "Rossi" }
 control → server : { "type": "manual_mode", "enabled": true }
+control → server : { "type": "get_settings" }
+control → server : { "type": "set_settings", "settings": { "lights_driver": "wled", "colors": { … } } }
+control → server : { "type": "update_station", "station": "post-03", "wled_segment": 2, "relay_url": "..." }
+control → server : { "type": "test_light", "station": "post-03", "color": "live" }   // prova, poi ripristina
+control → server : { "type": "test_relay", "station": "post-03" }
+server → mittente: { "type": "settings", "settings": { ... } }
 control → server : { "type": "add_station", "station": { "id": "post-08", "label": "Poltrona 8", "wled_segment": 7, "relay_url": "..." } }
 control → server : { "type": "remove_station", "station": "post-08" }
 server → tutti   : { "type": "state_sync", ... }   // stato completo: idempotente, a ogni cambiamento e a ogni connessione
@@ -196,6 +204,8 @@ Il countdown è calcolato dal server (`deadline` epoch nel `state_sync`); i clie
 **Pagina poltrona** (`/poltrona/?id=post-01`): fullscreen, dark, testi enormi leggibili a 1 m. View: IDLE (pulsante gigante "Chiedi la parola"), REQUESTED ("Richiesta inviata — attendi la regia" + Annulla), LIVE ("SEI IN ONDA" + countdown ad anello: verde → ambra a 60 s e 30 s → rosso lampeggiante a 0 con "TEMPO SCADUTO" e overtime negativo), DENIED, OFFLINE. Nessun altro elemento interattivo. Niente cursore.
 
 Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per countdown più brevi si usano le soglie proporzionali 50% e 25%.
+
+**Impostazioni** (`/impostazioni/`): pagina separata dalla regia — questa roba non deve stare accanto al pulsante CHIUDI durante una diretta. Gestisce scelta dei driver luci/relè, indirizzo e effetti WLED, template delle chiamate al relè, colori dei tre stati, e segmento/relè di ogni poltrona. Le modifiche vengono scritte in `config.json` e **applicate subito ricaricando i driver, senza riavviare**. Due comandi di prova per poltrona (spia e barra) accendono per due secondi e poi rimettono tutto com'era: servono a capire quale segmento corrisponde a quale poltrona il giorno dell'installazione. Non toccano mai una poltrona in onda.
 
 **Feed pulito** (`/feed/`): pagina nera a riposo, mostra in fullscreen la poltrona autorizzata con il suo audio. Nessun testo, nessun overlay (con `?debug=1` una riga di stato per il collaudo). Va aperta in Chromium kiosk sulla seconda uscita HDMI del PC di regia, quella collegata al mixer.
 

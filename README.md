@@ -375,6 +375,25 @@ Il percorso della API WLED, se diverso, si cambia con `wled_state_path`.
 Una poltrona **senza** `wled_segment` o **senza** `relay_url` viene saltata in silenzio: è il
 caso delle postazioni aggiunte al volo dalla dashboard, che hanno il video ma non le luci.
 
+### Configurare tutto dalla dashboard
+
+`/impostazioni/` (link «Impostazioni» in alto nella regia) gestisce l'intera M3 senza aprire
+`config.json`:
+
+- scelta dei driver (`mock` ↔ `wled` / `shelly`) e timeout delle periferiche;
+- indirizzo del controller, percorso della API e **id degli effetti**;
+- template delle chiamate al relè e credenziali;
+- **colori dei tre stati** con selettore colore, effetto e luminosità;
+- **segmento e URL relè di ogni poltrona**, in tabella.
+
+Salvando, le impostazioni finiscono in `config.json` e i driver vengono **ricaricati a caldo**:
+niente riavvio del server tra un segmento e l'altro.
+
+**Le due prove sono la parte che conta il giorno dell'installazione**: per ogni poltrona,
+«Spia» e «Barra» accendono per due secondi e poi rimettono tutto com'era. È il modo pratico
+per scoprire quale segmento WLED corrisponde a quale poltrona senza mandare nessuno in onda.
+Le prove usano le impostazioni **salvate** e non toccano mai una poltrona in onda.
+
 ### Se le luci non rispondono
 
 Non succede niente alla diretta: l'errore finisce nel log, la dashboard accende il banner

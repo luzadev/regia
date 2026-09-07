@@ -1,0 +1,95 @@
+/* Settings live on their own page: none of this belongs next to the CHIUDI
+   button while someone is on air. */
+.settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* Colours and the station table need the full width: squeezed into a column
+   the test buttons end up off screen, which is where they matter most. */
+.panel.full { grid-column: 1 / -1; }
+
+.banner.ok { background: rgba(22, 196, 99, 0.16); color: var(--green); }
+
+.fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 150px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fields label.wide { flex-basis: 100%; }
+.fields input, .fields select, .stations input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.fields input:focus-visible, .fields select:focus-visible,
+.stations input:focus-visible, button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.note { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+.note code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+.colors { display: flex; flex-direction: column; gap: 10px; }
+.color-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto auto;
+  gap: 10px;
+  align-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.color-row .what { font-weight: 600; font-size: 15px; }
+.color-row .what small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.color-row input[type="color"] { width: 52px; height: 34px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+.color-row select, .color-row input[type="number"] {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--text); padding: 8px; font: inherit;
+}
+.color-row input[type="number"] { width: 78px; }
+
+.stations { width: 100%; border-collapse: collapse; min-width: 560px; }
+.stations th {
+  text-align: left; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; padding: 0 10px 8px 0; border-bottom: 1px solid var(--line);
+}
+.stations td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.stations td:last-child { padding-right: 0; }
+.stations .who strong { display: block; font-size: 15px; }
+.stations .who span { color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+.stations input[type="number"] { width: 90px; }
+.stations input[type="url"] { width: 100%; min-width: 180px; }
+.stations .tests { display: flex; gap: 6px; white-space: nowrap; }
+.stations .tests button { padding: 7px 10px; font-size: 13px; }
+
+.savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+.savebar button { padding: 12px 22px; font-size: 15px; font-weight: 700; }
+.save-hint { color: var(--muted); font-size: 13px; }
+.save-hint.dirty { color: var(--amber); }

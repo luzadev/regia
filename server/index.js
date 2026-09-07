@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const { Studio } = require('./state');
 const { createLog } = require('./log');
 const { FeedHub } = require('./feed');
+const { sanitizeSettings, SETTINGS_KEYS } = require('./settings');
 
 const ROOT = path.resolve(__dirname, '..');
 const CONFIG_PATH = process.env.REGIA_CONFIG || path.join(ROOT, 'config.json');
@@ -34,7 +35,8 @@ const config = loadConfig();
 const HEARTBEAT_MS = config.heartbeat_interval_ms ?? 2000;
 const OFFLINE_MS = config.station_offline_timeout_ms ?? 6000;
 const DRIVER_TIMEOUT_MS = config.driver_timeout_ms ?? 1500;
-const COLORS = config.colors || {};
+// Held in a box so a settings change is picked up without re-binding.
+const COLORS_REF = { value: config.colors || {} };
 
 const log = createLog(path.resolve(ROOT, config.log_path || 'data/events.jsonl'));
 const studio = new Studio(config);
@@ -80,12 +82,13 @@ loadNames();
  * config.json, which stays the single source of truth (brief §6). The write is
  * atomic and keeps one backup: a half-written config would cost a show.
  */
-function saveStations() {
+function saveConfig(mutate) {
   const backup = CONFIG_PATH + '.bak';
   const tmp = CONFIG_PATH + '.tmp';
   try {
     const onDisk = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     onDisk.stations = studio.list().map((st) => st.config);
+    if (mutate) mutate(onDisk);
     fs.copyFileSync(CONFIG_PATH, backup);
     fs.writeFileSync(tmp, JSON.stringify(onDisk, null, 2) + '\n');
     fs.renameSync(tmp, CONFIG_PATH);
@@ -95,6 +98,21 @@ function saveStations() {
     log.event('config_save_error', { message: e.message });
     return { ok: false, message: e.message };
   }
+}
+
+const saveStations = () => saveConfig();
+
+/** The slice of config the settings page may read and write. */
+function currentSettings() {
+  const out = {};
+  for (const key of SETTINGS_KEYS) out[key] = config[key] ?? null;
+  out.stations = studio.list().map((st) => ({
+    id: st.id,
+    label: st.label,
+    wled_segment: Number.isInteger(st.config.wled_segment) ? st.config.wled_segment : null,
+    relay_url: st.config.relay_url || ''
+  }));
+  return out;
 }
 
 // --- drivers -----------------------------------------------------------
@@ -117,8 +135,23 @@ function loadDriver(kind, name, bus) {
 }
 
 const video = loadDriver('video', config.video_driver || 'mock', feedHub);
-const lights = loadDriver('lights', config.lights_driver || 'mock');
-const relay = loadDriver('relay', config.relay_driver || 'mock');
+let lights = loadDriver('lights', config.lights_driver || 'mock');
+let relay = loadDriver('relay', config.relay_driver || 'mock');
+
+/**
+ * Rebuilds the light and relay drivers after a settings change, so the
+ * control room does not have to restart the server between two segments.
+ * The video driver is deliberately left alone: the WebRTC hub is wired into
+ * it, and swapping it mid-show is not something to do from a settings page.
+ */
+function reloadLightDrivers() {
+  lights = loadDriver('lights', config.lights_driver || 'mock');
+  relay = loadDriver('relay', config.relay_driver || 'mock');
+  driverStatus.lights = { status: 'ok' };
+  driverStatus.relay = { status: 'ok' };
+  appliedColor.clear(); // the new driver knows nothing: push the whole state again
+  console.log(`[driver] ricaricati: lights=${lights.name} relay=${relay.name}`);
+}
 
 /** Runs a driver call with a short timeout. Never throws: the show goes on. */
 async function callDriver(kind, label, fn, timeoutMs) {
@@ -147,7 +180,7 @@ function colorKeyFor(station) {
 }
 
 async function applyColor(station, key) {
-  const spec = COLORS[key] || { rgb: [0, 0, 0], effect: 'off' };
+  const spec = COLORS_REF.value[key] || { rgb: [0, 0, 0], effect: 'off' };
   await callDriver('lights', `apply ${station.id} ${key}`, () => lights.apply(station, key, spec));
   if (!studio.manualMode) appliedColor.set(station.id, key);
 }
@@ -539,6 +572,88 @@ function handleControlMessage(ws, msg) {
       }
       return res.ok ? undefined : sendError(ws, res.code, res.message);
     }
+    case 'get_settings':
+      return send(ws, { type: 'settings', settings: currentSettings() });
+
+    case 'set_settings': {
+      const clean = sanitizeSettings(msg.settings);
+      if (!Object.keys(clean).length) return sendError(ws, 'bad_settings', 'Nessuna impostazione valida');
+      Object.assign(config, clean);
+      COLORS_REF.value = config.colors || COLORS_REF.value;
+
+      const saved = saveConfig((onDisk) => Object.assign(onDisk, clean));
+      log.event('settings_changed', { keys: Object.keys(clean), saved: saved.ok });
+      if (!saved.ok) sendError(ws, 'not_persisted', 'Impostazioni applicate ma non salvate su config.json');
+
+      reloadLightDrivers();
+      enqueue(async () => {
+        await resyncDrivers();
+        broadcast();
+      });
+      send(ws, { type: 'settings', settings: currentSettings() });
+      return;
+    }
+
+    case 'update_station': {
+      const st = studio.get(msg.station);
+      if (!st) return sendError(ws, 'unknown_station', `Poltrona sconosciuta: ${msg.station}`);
+      if (msg.label !== undefined && String(msg.label).trim()) {
+        st.label = String(msg.label).trim().slice(0, 40);
+        st.config.label = st.label;
+      }
+      if (msg.wled_segment === null) delete st.config.wled_segment;
+      else if (Number.isInteger(msg.wled_segment)) st.config.wled_segment = msg.wled_segment;
+      if (msg.relay_url === null || msg.relay_url === '') delete st.config.relay_url;
+      else if (typeof msg.relay_url === 'string') st.config.relay_url = msg.relay_url.trim().slice(0, 200);
+
+      const savedStation = saveConfig();
+      log.event('station_updated', { station: st.id, saved: savedStation.ok });
+      appliedColor.delete(st.id); // the light moved: push its colour again
+      enqueue(async () => {
+        await syncLights();
+        broadcast();
+      });
+      send(ws, { type: 'settings', settings: currentSettings() });
+      return;
+    }
+
+    /** Fires a colour at one station's light for a moment, then puts it back. */
+    case 'test_light': {
+      const st = studio.get(msg.station);
+      if (!st) return sendError(ws, 'unknown_station', `Poltrona sconosciuta: ${msg.station}`);
+      if (st.state === 'LIVE') return sendError(ws, 'is_live', 'Poltrona in onda: la sua spia non si tocca');
+      const key = ['requested', 'live', 'idle'].includes(msg.color) ? msg.color : 'live';
+      enqueue(async () => {
+        await applyColor(st, key);
+        log.event('test_light', { station: st.id, color: key });
+      });
+      setTimeout(() => {
+        enqueue(async () => {
+          await syncLights();
+          broadcast();
+        });
+      }, msg.ms && msg.ms <= 10000 ? msg.ms : 2500);
+      return;
+    }
+
+    /** Pulses one station's LED bar, to find out which relay is which. */
+    case 'test_relay': {
+      const st = studio.get(msg.station);
+      if (!st) return sendError(ws, 'unknown_station', `Poltrona sconosciuta: ${msg.station}`);
+      if (st.state === 'LIVE') return sendError(ws, 'is_live', 'Poltrona in onda: la sua barra non si tocca');
+      enqueue(async () => {
+        await callDriver('relay', `test ${st.id}`, () => relay.set(st, true));
+        log.event('test_relay', { station: st.id });
+      });
+      setTimeout(() => {
+        enqueue(async () => {
+          await callDriver('relay', `test off ${st.id}`, () => relay.set(st, false));
+          broadcast();
+        });
+      }, msg.ms && msg.ms <= 10000 ? msg.ms : 2500);
+      return;
+    }
+
     case 'add_station': {
       const res = studio.addStation(msg.station || {});
       if (!res.ok) return sendError(ws, res.code, res.message);
