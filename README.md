@@ -268,8 +268,26 @@ riadatta da sola. Il numero è limitato solo dall'hardware, non dal software.
 
 ## Roadmap
 
-`docs/roadmap.html` — apribile direttamente nel browser (doppio clic sul file). Descrive le
-release successive: studio completo, multi-device, ospiti remoti, ambienti phygital.
+- `docs/roadmap.html` — apribile direttamente nel browser (doppio clic sul file)
+- `docs/roadmap.pdf` — la stessa pagina pronta da mandare, 9 pagine
+
+Descrive le release successive: studio completo, multi-device, ospiti remoti, ambienti
+phygital, e le regole che nessuna di esse può violare.
+
+La pagina ha un foglio di stile per la stampa (fondo bianco, blocchi che non si spezzano tra
+due fogli), quindi da browser basta Stampa → Salva come PDF. Per rigenerare il file dopo una
+modifica all'HTML:
+
+```bash
+# macOS
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --no-pdf-header-footer --virtual-time-budget=10000 \
+  --print-to-pdf="$PWD/docs/roadmap.pdf" "file://$PWD/docs/roadmap.html"
+
+# Windows
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new ^
+  --no-pdf-header-footer --print-to-pdf="docs\roadmap.pdf" "file:///.../docs/roadmap.html"
+```
 
 ## Modalità manuale
 

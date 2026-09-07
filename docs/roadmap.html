@@ -373,6 +373,76 @@
     .onair::before { animation: pulse 2.4s ease-in-out infinite; }
   }
   @keyframes pulse { 50% { opacity: 0.35; } }
+
+  /* ---------- stampa ----------
+     Su carta il fondo scuro è illeggibile e divora inchiostro: la stessa
+     gerarchia, ribaltata su bianco, con i colori tally scuriti quanto basta
+     per reggere il contrasto. */
+  @page { margin: 15mm 14mm 16mm; }
+
+  @media print {
+    :root {
+      --ground: #FFFFFF;
+      --panel: #FFFFFF;
+      --panel-2: #F4F6F8;
+      --line: #C9D2DB;
+      --line-soft: #DDE3E9;
+      --ink: #0E141A;
+      --muted: #485664;
+      --dim: #6A7684;
+      --tally-red: #C0261D;
+      --tally-amber: #9A6200;
+      --tally-green: #14713C;
+      --cool: #1F5F94;
+    }
+
+    body { font-size: 10.5pt; line-height: 1.5; }
+    .wrap { padding: 0; max-width: none; }
+
+    h1 { font-size: 46pt; }
+    h2 { font-size: 17pt; }
+    h3 { font-size: 12pt; }
+    .lede { font-size: 12pt; max-width: none; }
+    p { max-width: none; }
+
+    header { padding-top: 0; }
+    section { padding: 14pt 0; border-bottom: 1px solid var(--line); }
+    .sec-head { margin-bottom: 12pt; }
+
+    /* Nothing readable may be split across two sheets. */
+    .block, .seam, .rule, .q, .split > div, figure, .hinge { break-inside: avoid; }
+
+    /* On screen these grids paint their own background to draw hairline gaps.
+       On paper the children move to the next sheet and the painted container
+       stays behind as an empty grey slab, so give the borders to the children. */
+    .seams, .split, .rules {
+      background: transparent;
+      border: 0;
+      gap: 6pt;
+      break-inside: avoid;
+    }
+    .seam, .split > div, .rule { border: 1px solid var(--line); }
+    section, h2, h3 { break-after: avoid; }
+    tr { break-inside: avoid; }
+
+    .onair::before { animation: none; }
+    .add-form, .toast { display: none; }
+
+    /* The diagram carries hardcoded colours, so remap each one for paper. */
+    svg rect[fill="#1A212A"] { fill: #EEF2F6; }
+    svg rect[fill="#141920"] { fill: #FFFFFF; }
+    svg rect[stroke="#232C36"] { stroke: #C9D2DB; }
+    svg text[fill="#E9EEF3"] { fill: #0E141A; }
+    svg text[fill="#8B99A8"] { fill: #485664; }
+    svg text[fill="#5F6C7B"] { fill: #6A7684; }
+    svg text[fill="#FFA800"] { fill: #9A6200; }
+    svg text[fill="#21C063"] { fill: #14713C; }
+    svg text[fill="#5B9DD9"] { fill: #1F5F94; }
+    svg path[stroke="#5F6C7B"] { stroke: #8A96A3; }
+    svg path[fill="#5F6C7B"] { fill: #8A96A3; }
+
+    a { color: inherit; text-decoration: none; }
+  }
 </style>
 
 </head>
