@@ -72,6 +72,8 @@
     .then(function (cfg) {
       if (cfg.webrtc_constraints) publisher.constraints = cfg.webrtc_constraints;
       if (cfg.webrtc_max_bitrate_kbps) publisher.maxBitrateKbps = cfg.webrtc_max_bitrate_kbps;
+      if (cfg.webrtc_min_bitrate_kbps) publisher.minBitrateKbps = cfg.webrtc_min_bitrate_kbps;
+      if (cfg.webrtc_codec) publisher.codec = cfg.webrtc_codec;
     })
     .catch(function () {})
     .then(function () {

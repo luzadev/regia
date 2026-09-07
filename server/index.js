@@ -494,7 +494,9 @@ app.get('/api/ui-config', (_req, res) =>
     heartbeat_interval_ms: HEARTBEAT_MS,
     offline_timeout_ms: OFFLINE_MS,
     webrtc_constraints: config.webrtc_constraints || null,
-    webrtc_max_bitrate_kbps: config.webrtc_max_bitrate_kbps || null
+    webrtc_max_bitrate_kbps: config.webrtc_max_bitrate_kbps || null,
+    webrtc_min_bitrate_kbps: config.webrtc_min_bitrate_kbps || null,
+    webrtc_codec: config.webrtc_codec || null
   })
 );
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));

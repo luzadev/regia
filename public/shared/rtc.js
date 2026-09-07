@@ -8,11 +8,79 @@
 
   var RTC_CONFIG = { iceServers: [] };
 
+  /**
+   * Chrome's bandwidth estimator starts around 300 kbit/s and climbs over tens
+   * of seconds, so the first shot on air is soft. On a dedicated LAN there is
+   * nothing to be careful about: tell the encoder its floor, start and ceiling
+   * directly in the SDP.
+   *
+   * Every edit stays INSIDE the video media section, and any problem falls back
+   * to the original SDP - a soft picture is bad, a broken offer is worse.
+   */
+  function tuneVideoBitrate(sdp, minKbps, maxKbps) {
+    try {
+      var lines = sdp.split('\r\n');
+      var codecPayloads = {};
+      var hasFmtp = {};
+      var inVideo = false;
+      var i;
+
+      // Pass 1: which payload types are real video codecs, and which already
+      // carry an fmtp line. rtx/red/ulpfec must never be touched.
+      for (i = 0; i < lines.length; i++) {
+        if (lines[i].indexOf('m=') === 0) inVideo = lines[i].indexOf('m=video') === 0;
+        if (!inVideo) continue;
+        var rtpmap = /^a=rtpmap:(\d+) ([A-Za-z0-9]+)\//.exec(lines[i]);
+        if (rtpmap && /^(VP8|VP9|H264|AV1)$/i.test(rtpmap[2])) codecPayloads[rtpmap[1]] = true;
+        var fmtp = /^a=fmtp:(\d+) /.exec(lines[i]);
+        if (fmtp) hasFmtp[fmtp[1]] = true;
+      }
+      if (!Object.keys(codecPayloads).length) return sdp;
+
+      var params =
+        'x-google-start-bitrate=' + minKbps +
+        ';x-google-min-bitrate=' + minKbps +
+        ';x-google-max-bitrate=' + maxKbps;
+
+      // Pass 2: rebuild, adding what is missing where it belongs.
+      var out = [];
+      inVideo = false;
+      for (i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line.indexOf('m=') === 0) inVideo = line.indexOf('m=video') === 0;
+
+        if (inVideo) {
+          var existing = /^a=fmtp:(\d+) (.*)$/.exec(line);
+          if (existing && codecPayloads[existing[1]]) {
+            out.push('a=fmtp:' + existing[1] + ' ' + existing[2] + ';' + params);
+            continue;
+          }
+        }
+
+        out.push(line);
+
+        if (!inVideo) continue;
+        // b= belongs right after the c= line of its media section.
+        if (line.indexOf('c=') === 0) out.push('b=AS:' + maxKbps);
+        // A codec with no fmtp line at all gets one, right after its rtpmap.
+        var map = /^a=rtpmap:(\d+) /.exec(line);
+        if (map && codecPayloads[map[1]] && !hasFmtp[map[1]]) {
+          out.push('a=fmtp:' + map[1] + ' ' + params);
+        }
+      }
+      return out.join('\r\n');
+    } catch (e) {
+      return sdp;
+    }
+  }
+
   /** Runs on the station page. */
   function StationPublisher(bridge, options) {
     this.bridge = bridge;
     this.constraints = options.constraints;
     this.maxBitrateKbps = options.maxBitrateKbps || 4000;
+    this.minBitrateKbps = options.minBitrateKbps || 1500;
+    this.codec = options.codec || null;
     this.onStatus = options.onStatus || function () {};
     this.stream = null;
     this.pc = null;
@@ -74,6 +142,7 @@
     }
     var pc = new RTCPeerConnection(RTC_CONFIG);
     this.pc = pc;
+    window.regiaPeer = pc; // diagnostics: pc.getStats() from the console
 
     this.stream.getTracks().forEach(function (track) {
       pc.addTrack(track, self.stream);
@@ -86,6 +155,23 @@
     var videoSender = pc.getSenders().filter(function (s) {
       return s.track && s.track.kind === 'video';
     })[0];
+
+    // Optional codec preference: H264 usually means hardware encoding on the
+    // mini PCs, VP9/AV1 mean better quality per bit but more CPU.
+    if (this.codec && videoSender && window.RTCRtpSender && RTCRtpSender.getCapabilities) {
+      try {
+        var wanted = 'video/' + this.codec.toLowerCase();
+        var caps = RTCRtpSender.getCapabilities('video').codecs;
+        var preferred = caps.filter(function (c) { return c.mimeType.toLowerCase() === wanted; });
+        var others = caps.filter(function (c) { return c.mimeType.toLowerCase() !== wanted; });
+        var transceiver = pc.getTransceivers().filter(function (t) { return t.sender === videoSender; })[0];
+        if (preferred.length && transceiver && transceiver.setCodecPreferences) {
+          transceiver.setCodecPreferences(preferred.concat(others));
+        }
+      } catch (e) {
+        /* the browser keeps its own preference order */
+      }
+    }
     if (videoSender && videoSender.getParameters) {
       try {
         var params = videoSender.getParameters();
@@ -103,6 +189,7 @@
 
     pc.createOffer()
       .then(function (offer) {
+        offer.sdp = tuneVideoBitrate(offer.sdp, self.minBitrateKbps, self.maxBitrateKbps);
         return pc.setLocalDescription(offer);
       })
       .then(function () {
@@ -156,6 +243,7 @@
     var self = this;
     var pc = new RTCPeerConnection(RTC_CONFIG);
     this.pc = pc;
+    window.regiaPeer = pc; // diagnostics: pc.getStats() from the console
     this.queuedCandidates = [];
 
     pc.onicecandidate = function (ev) {
@@ -265,6 +353,7 @@
     this.queuedCandidates = [];
   };
 
+  window.tuneVideoBitrate = tuneVideoBitrate; // exported for tests and diagnostics
   window.StationPublisher = StationPublisher;
   window.FeedReceiver = FeedReceiver;
 })();

@@ -151,6 +151,35 @@ In alternativa, criterio aziendale `VideoCaptureAllowedUrls` / `AudioCaptureAllo
 l'origine del server, oppure concedere il permesso a mano la prima volta (Chromium lo ricorda
 per quell'origine).
 
+### Qualità del video
+
+WebRTC nasce per internet: parte a ~300 kbit/s e sale piano, e riduce la risoluzione appena
+sospetta congestione. In una LAN dedicata è una cautela inutile, quindi il sender è tarato
+esplicitamente:
+
+| Parametro | Effetto |
+| --- | --- |
+| `webrtc_constraints.video` | risoluzione e fps chiesti alla webcam (1280x720@30 di default) |
+| `webrtc_min_bitrate_kbps` | pavimento e bitrate iniziale (1500): niente prima inquadratura molle |
+| `webrtc_max_bitrate_kbps` | tetto (4000) |
+| `webrtc_codec` | `null` lascia scegliere il browser; `"H264"` di solito significa codifica hardware sui mini PC, `"VP9"` qualità migliore a parità di banda ma più CPU |
+
+Oltre a questo il sender chiede `degradationPreference: maintain-resolution`, cioè in caso di
+difficoltà preferisce perdere fotogrammi che nitidezza — su un talking head è la scelta giusta.
+
+Misurato in laboratorio dopo la taratura: **1280x720 a 30 fps, ~4 Mbit/s, nessuna limitazione
+di qualità**. Prima della taratura lo stesso collegamento stava a 780 kbit/s e scendeva a
+480x270.
+
+Per verificare in studio, dalla console della pagina poltrona in onda:
+
+```js
+(await regiaPeer.getStats()).forEach(r => r.type === 'outbound-rtp' && r.kind === 'video' && console.log(r.frameWidth, r.frameHeight, r.framesPerSecond, r.qualityLimitationReason))
+```
+
+`qualityLimitationReason` dice chi sta limitando: `bandwidth` (rete), `cpu` (mini PC troppo
+carico: prova `"webrtc_codec": "H264"` o scendi a 720p25), `none` (tutto a posto).
+
 ### Se qualcosa non funziona
 
 | Sintomo | Causa tipica |
