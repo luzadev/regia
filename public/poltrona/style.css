@@ -79,3 +79,19 @@ h1 { font-size: clamp(38px, 8vw, 108px); margin: 0; letter-spacing: 0.02em; font
 
 /* No countdown: the ring is hidden, only "SEI IN ONDA" stays. */
 .ring-wrap.hidden { display: none; }
+
+/* Not interactive: a discreet warning for the crew when this station cannot
+   feed the mixer, so it is spotted before the show and not during it. */
+.media-warning {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px;
+  text-align: center;
+  background: rgba(255, 45, 45, 0.16);
+  color: var(--red);
+  font-size: clamp(14px, 2vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}

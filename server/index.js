@@ -8,6 +8,7 @@ const { WebSocketServer } = require('ws');
 
 const { Studio } = require('./state');
 const { createLog } = require('./log');
+const { FeedHub } = require('./feed');
 
 const ROOT = path.resolve(__dirname, '..');
 const CONFIG_PATH = process.env.REGIA_CONFIG || path.join(ROOT, 'config.json');
@@ -35,6 +36,7 @@ const COLORS = config.colors || {};
 
 const log = createLog(path.resolve(ROOT, config.log_path || 'data/events.jsonl'));
 const studio = new Studio(config);
+const feedHub = new FeedHub({ log, readyTimeoutMs: config.webrtc_ready_timeout_ms ?? 5000 });
 
 // --- guest names (only persisted state besides the log) ----------------
 
@@ -75,28 +77,29 @@ const driverStatus = {
   relay: { status: 'ok' }
 };
 
-function loadDriver(kind, name) {
+function loadDriver(kind, name, bus) {
   const file = path.join(__dirname, 'drivers', `${kind}.${name}.js`);
   try {
-    return require(file).create(config, log);
+    return require(file).create(config, log, bus);
   } catch (e) {
     console.error(`[driver] ${kind}.${name} non caricabile (${e.message}), uso il mock`);
     driverStatus[kind] = { status: 'error', message: `driver ${name} non disponibile` };
-    return require(path.join(__dirname, 'drivers', `${kind}.mock.js`)).create(config, log);
+    return require(path.join(__dirname, 'drivers', `${kind}.mock.js`)).create(config, log, bus);
   }
 }
 
-const video = loadDriver('video', config.video_driver || 'mock');
+const video = loadDriver('video', config.video_driver || 'mock', feedHub);
 const lights = loadDriver('lights', config.lights_driver || 'mock');
 const relay = loadDriver('relay', config.relay_driver || 'mock');
 
 /** Runs a driver call with a short timeout. Never throws: the show goes on. */
-async function callDriver(kind, label, fn) {
+async function callDriver(kind, label, fn, timeoutMs) {
   if (studio.manualMode) return;
+  const limit = timeoutMs || DRIVER_TIMEOUT_MS;
   try {
     await Promise.race([
       Promise.resolve().then(fn),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), DRIVER_TIMEOUT_MS))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), limit))
     ]);
     if (driverStatus[kind].status !== 'ok') driverStatus[kind] = { status: 'ok' };
   } catch (e) {
@@ -141,8 +144,8 @@ async function runPlan(plan) {
     if (step.op === 'close') {
       await applyColor(st, 'idle');
       await callDriver('relay', `off ${st.id}`, () => relay.set(st, false));
-      broadcast();
-      await callDriver('video', 'black', () => video.setSource(null));
+      sendSnapshot();
+      await callDriver('video', 'black', () => video.setSource(null), video.timeoutMs);
       log.event('live_close', {
         station: st.id,
         name: st.name,
@@ -150,8 +153,8 @@ async function runPlan(plan) {
         duration_s: step.duration_s
       });
     } else if (step.op === 'open') {
-      await callDriver('video', `source ${st.id}`, () => video.setSource(st));
-      broadcast();
+      await callDriver('video', `source ${st.id}`, () => video.setSource(st), video.timeoutMs);
+      sendSnapshot();
       await applyColor(st, 'live');
       await callDriver('relay', `on ${st.id}`, () => relay.set(st, true));
       log.event('live_open', {
@@ -167,7 +170,7 @@ async function runPlan(plan) {
 /** After manual mode is switched off, push the current state to the hardware. */
 async function resyncDrivers() {
   const live = studio.liveStation();
-  await callDriver('video', 'resync', () => video.setSource(live));
+  await callDriver('video', 'resync', () => video.setSource(live), video.timeoutMs);
   for (const st of studio.list()) {
     await applyColor(st, colorKeyFor(st));
     await callDriver('relay', `resync ${st.id}`, () => relay.set(st, st.state === 'LIVE'));
@@ -184,6 +187,9 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 const clients = new Set();
 const stationSockets = new Map();
 
+feedHub.stationSocket = (id) => stationSockets.get(id) || null;
+feedHub.onChange = () => broadcast();
+
 function send(ws, payload) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
 }
@@ -192,9 +198,34 @@ function sendError(ws, code, message) {
   send(ws, { type: 'error', code, message });
 }
 
+/**
+ * While an open/close sequence runs, the state machine has already changed but
+ * the drivers have not caught up: a stray broadcast would tell the station it
+ * is on air before its video actually reaches the feed. So broadcasts are held
+ * during a plan and released at the exact points the rigid order allows.
+ */
+let broadcastHeld = false;
+let broadcastMissed = false;
+
+function sendSnapshot(options) {
+  const skipStations = options && options.skipStations;
+  if (!skipStations) broadcastMissed = false;
+  const payload = JSON.stringify(studio.snapshot(driverStatus, feedHub.status()));
+  for (const ws of clients) {
+    if (skipStations && ws.role === 'station') continue;
+    if (ws.readyState === ws.OPEN) ws.send(payload);
+  }
+}
+
 function broadcast() {
-  const payload = JSON.stringify(studio.snapshot(driverStatus));
-  for (const ws of clients) if (ws.readyState === ws.OPEN) ws.send(payload);
+  if (broadcastHeld) {
+    // The hold protects what the STATION shows: the dashboard must keep
+    // updating while a switch is in progress, or it looks frozen to the operator.
+    broadcastMissed = true;
+    sendSnapshot({ skipStations: true });
+    return;
+  }
+  sendSnapshot();
 }
 
 // Commands are serialized: a grant that closes A and opens B must never
@@ -211,9 +242,17 @@ function handleResult(ws, result) {
     return;
   }
   enqueue(async () => {
-    if (result.plan && result.plan.length) await runPlan(result.plan);
+    if (result.plan && result.plan.length) {
+      broadcastHeld = true;
+      try {
+        await runPlan(result.plan);
+      } finally {
+        broadcastHeld = false;
+      }
+    }
     await syncLights();
-    broadcast();
+    if (broadcastMissed || (result.plan && result.plan.length)) sendSnapshot();
+    else broadcast();
   });
 }
 
@@ -236,11 +275,13 @@ wss.on('connection', (ws) => {
     if (msg.type === 'hello') return handleHello(ws, msg);
     if (!ws.role) return sendError(ws, 'not_identified', 'Presentarsi con hello');
     if (ws.role === 'station') return handleStationMessage(ws, msg);
+    if (ws.role === 'feed') return handleFeedMessage(ws, msg);
     return handleControlMessage(ws, msg);
   });
 
   ws.on('close', () => {
     clients.delete(ws);
+    if (ws.role === 'feed') feedHub.removeClient(ws);
     if (ws.role === 'station' && stationSockets.get(ws.stationId) === ws) {
       stationSockets.delete(ws.stationId);
       if (studio.setConnected(ws.stationId, false)) {
@@ -276,6 +317,19 @@ function handleHello(ws, msg) {
     return;
   }
 
+  if (msg.role === 'feed') {
+    if (config.control_token && msg.token !== config.control_token) {
+      sendError(ws, 'unauthorized', 'Token non valido');
+      return ws.close(4003, 'unauthorized');
+    }
+    ws.role = 'feed';
+    clients.add(ws);
+    feedHub.addClient(ws);
+    log.event('feed_online', {});
+    send(ws, studio.snapshot(driverStatus, feedHub.status()));
+    return;
+  }
+
   if (msg.role === 'control') {
     if (config.control_token && msg.token !== config.control_token) {
       sendError(ws, 'unauthorized', 'Token non valido');
@@ -283,7 +337,7 @@ function handleHello(ws, msg) {
     }
     ws.role = 'control';
     clients.add(ws);
-    send(ws, studio.snapshot(driverStatus));
+    send(ws, studio.snapshot(driverStatus, feedHub.status()));
     return;
   }
 
@@ -303,6 +357,38 @@ function handleStationMessage(ws, msg) {
       const res = studio.cancelRequest(id);
       if (res.ok) log.event('cancel_request', { station: id });
       return handleResult(ws, res);
+    }
+    case 'rtc_signal': {
+      // Only the station the feed is pointed at may reach the receiver.
+      if (!feedHub.relayFromStation(id, msg.data)) {
+        return sendError(ws, 'not_on_feed', 'Poltrona non collegata al feed');
+      }
+      return;
+    }
+    case 'media_status': {
+      const res = studio.setMedia(id, msg.ok, msg.message);
+      if (res.ok) {
+        log.event('media_status', { station: id, ok: !!msg.ok, message: msg.message || null });
+        broadcast();
+      }
+      return;
+    }
+    default:
+      return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
+  }
+}
+
+function handleFeedMessage(ws, msg) {
+  switch (msg.type) {
+    case 'feed_ready':
+      return feedHub.markReady(msg.station);
+    case 'feed_error':
+      return feedHub.markError(msg.station, msg.message);
+    case 'rtc_signal': {
+      if (!feedHub.relayToStation(msg.station, msg.data)) {
+        return sendError(ws, 'not_on_feed', 'Poltrona non collegata al feed');
+      }
+      return;
     }
     default:
       return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
@@ -397,7 +483,8 @@ app.get('/api/ui-config', (_req, res) =>
   res.json({
     countdown_presets_s: config.countdown_presets_s || [30, 60, 120, 300],
     heartbeat_interval_ms: HEARTBEAT_MS,
-    offline_timeout_ms: OFFLINE_MS
+    offline_timeout_ms: OFFLINE_MS,
+    webrtc_constraints: config.webrtc_constraints || null
   })
 );
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
@@ -407,6 +494,7 @@ server.listen(config.http_port || 8080, config.bind_host || '0.0.0.0', () => {
   console.log(`[regia] in ascolto su http://${addr.address}:${addr.port}`);
   console.log(`[regia] dashboard: http://localhost:${addr.port}/regia/`);
   console.log(`[regia] poltrona:  http://localhost:${addr.port}/poltrona/?id=${config.stations[0].id}`);
+  console.log(`[regia] feed:      http://localhost:${addr.port}/feed/`);
   console.log(`[regia] driver: video=${video.name} lights=${lights.name} relay=${relay.name}`);
   log.event('server_start', { port: addr.port, stations: studio.list().length });
 
@@ -414,7 +502,7 @@ server.listen(config.http_port || 8080, config.bind_host || '0.0.0.0', () => {
   // through the driver wrapper means an unreachable Studio Monitor shows up in
   // the dashboard banner immediately, instead of at the first grant.
   enqueue(async () => {
-    await callDriver('video', 'boot black', () => video.setSource(null));
+    await callDriver('video', 'boot black', () => video.setSource(null), video.timeoutMs);
     await syncLights();
     for (const st of studio.list()) await callDriver('relay', `boot off ${st.id}`, () => relay.set(st, false));
     broadcast();

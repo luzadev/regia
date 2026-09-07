@@ -12,6 +12,7 @@
     this.onSync = options.onSync || function () {};
     this.onLink = options.onLink || function () {};
     this.onError = options.onError || function () {};
+    this.onMessage = options.onMessage || function () {};
 
     this.ws = null;
     this.offset = 0; // serverNow - Date.now(), so drifting kiosk clocks don't matter
@@ -67,6 +68,8 @@
         self.onSync(msg);
       } else if (msg.type === 'error') {
         self.onError(msg);
+      } else {
+        self.onMessage(msg);
       }
     };
 

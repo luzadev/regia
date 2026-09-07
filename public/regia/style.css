@@ -17,6 +17,10 @@ body { min-height: 100vh; }
 .banner { padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 13px; }
 .banner.red { background: rgba(255,45,45,0.16); color: var(--red); }
 .banner.amber { background: rgba(255,170,0,0.16); color: var(--amber); }
+.feed-link { color: var(--muted); font-size: 13px; text-decoration: none; border: 1px solid var(--line); padding: 6px 10px; border-radius: 8px; }
+.feed-link:hover { color: var(--text); }
+.badge.cam-ko { background: rgba(255,45,45,0.2); color: var(--red); }
+.badge.cam-ok { background: rgba(22,196,99,0.16); color: var(--green); }
 .manual-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
 .manual-toggle input { width: 20px; height: 20px; }
 

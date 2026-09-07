@@ -13,6 +13,7 @@
   var el = {
     bannerOffline: document.getElementById('banner-offline'),
     bannerDrivers: document.getElementById('banner-drivers'),
+    bannerFeed: document.getElementById('banner-feed'),
     bannerManual: document.getElementById('banner-manual'),
     manual: document.getElementById('manual-mode'),
     queue: document.getElementById('queue'),
@@ -134,6 +135,9 @@
     el.bannerDrivers.hidden = broken.length === 0;
     el.bannerDrivers.textContent = 'DRIVER IN ERRORE — ' + broken.join(' · ');
 
+    // Without a feed receiver nothing can reach the mixer, whatever the queue says.
+    el.bannerFeed.hidden = !snap.feed || snap.feed.receivers > 0;
+
     renderQueue(snap);
     renderLive();
     renderGrid(snap);
@@ -240,6 +244,12 @@
       card.state.textContent = s.state;
       card.link.className = 'badge ' + (s.connected ? 'idle' : 'offline');
       card.link.textContent = s.connected ? 'online' : 'offline';
+
+      var media = s.media || {};
+      card.cam.hidden = media.ok === null || media.ok === undefined;
+      card.cam.className = 'badge ' + (media.ok ? 'cam-ok' : 'cam-ko');
+      card.cam.textContent = media.ok ? 'cam' : 'cam ko';
+      card.cam.title = media.message || '';
       if (document.activeElement !== card.name) card.name.value = s.name || '';
 
       var isLive = s.state === 'LIVE';
@@ -263,8 +273,11 @@
     badges.className = 'badges';
     var state = document.createElement('span');
     var link = document.createElement('span');
+    var cam = document.createElement('span');
+    cam.hidden = true;
     badges.appendChild(state);
     badges.appendChild(link);
+    badges.appendChild(cam);
     head.appendChild(label);
     head.appendChild(badges);
 
@@ -303,7 +316,7 @@
     root.appendChild(actions);
     el.grid.appendChild(root);
 
-    cards[s.id] = { root: root, state: state, link: link, name: name, go: go, stop: stop };
+    cards[s.id] = { root: root, state: state, link: link, cam: cam, name: name, go: go, stop: stop };
     return cards[s.id];
   }
 

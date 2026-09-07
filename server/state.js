@@ -50,6 +50,7 @@ class Studio {
         countdown_total_s: null,
         denied_until: null,
         intervention_id: null,
+        media: { ok: null, message: null },
         config: s
       });
     }
@@ -80,7 +81,17 @@ class Studio {
     const st = this.get(id);
     if (!st || st.connected === connected) return false;
     st.connected = connected;
+    // A station that is gone tells us nothing about its camera any more.
+    if (!connected) st.media = { ok: null, message: null };
     return true;
+  }
+
+  /** Camera/microphone availability reported by the station page. */
+  setMedia(id, ok, message) {
+    const st = this.get(id);
+    if (!st) return err('unknown_station', `Poltrona sconosciuta: ${id}`);
+    st.media = { ok: !!ok, message: message ? String(message).slice(0, 200) : null };
+    return { ok: true, plan: [] };
   }
 
   // --- station commands -------------------------------------------------
@@ -216,7 +227,7 @@ class Studio {
   }
 
   /** Full, idempotent state for `state_sync`. */
-  snapshot(drivers = {}) {
+  snapshot(drivers = {}, feed = null) {
     const live = this.liveStation();
     return {
       type: 'state_sync',
@@ -224,6 +235,7 @@ class Studio {
       manual_mode: this.manualMode,
       live: live ? live.id : null,
       drivers,
+      feed,
       stations: this.list().map((s) => ({
         id: s.id,
         label: s.label,
@@ -234,7 +246,8 @@ class Studio {
         live_since: s.live_since,
         deadline: s.deadline,
         countdown_total_s: s.countdown_total_s,
-        denied_until: s.denied_until
+        denied_until: s.denied_until,
+        media: s.media
       }))
     };
   }

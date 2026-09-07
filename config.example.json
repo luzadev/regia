@@ -53,7 +53,20 @@
       "relay_url": "http://192.168.10.47/relay/0"
     }
   ],
-  "video_driver": "mock",
+  "video_driver": "webrtc",
+  "webrtc_ready_timeout_ms": 5000,
+  "webrtc_constraints": {
+    "video": {
+      "width": 1280,
+      "height": 720,
+      "frameRate": 30
+    },
+    "audio": {
+      "echoCancellation": false,
+      "noiseSuppression": false,
+      "autoGainControl": false
+    }
+  },
   "lights_driver": "mock",
   "relay_driver": "mock",
   "ndi_monitor_url": "http://127.0.0.1:80",

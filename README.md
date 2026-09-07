@@ -4,8 +4,12 @@ Software per lo studio con 7 poltrone ospiti: le poltrone chiedono la parola da 
 la regia vede la coda e autorizza, il server commuta il feed video verso il mixer e accende
 le luci della postazione.
 
-Stato: **M1 e M2 completate** (core loop + driver video NDI). M3 (luci WLED/relè) e
-M4 (endpoint Stream Deck, pagina `/log`, deploy) non sono ancora implementate.
+Stato: **M1 e M2 completate** (core loop + percorso video WebRTC in casa). M3 (luci WLED/relè)
+e M4 (endpoint Stream Deck, pagina `/log`, deploy) non sono ancora implementate.
+
+Il video e l'audio delle poltrone viaggiano in **WebRTC**, senza software di terze parti:
+la pagina poltrona pubblica webcam e microfono, la pagina `/feed/` li mostra a schermo intero
+sull'uscita HDMI verso il mixer. Il driver NDI resta disponibile come alternativa.
 
 ## Requisiti
 
@@ -24,6 +28,7 @@ Il server stampa gli indirizzi utili all'avvio:
 
 - Dashboard regia: `http://<ip-server>:8080/regia/`
 - Pagina poltrona: `http://<ip-server>:8080/poltrona/?id=post-01`
+- Feed pulito: `http://<ip-server>:8080/feed/` (schermo intero sull'HDMI verso il mixer)
 
 ## Configurazione (`config.json`)
 
@@ -32,7 +37,10 @@ Il server stampa gli indirizzi utili all'avvio:
 | `bind_host`, `http_port` | interfaccia e porta di ascolto |
 | `control_token` | se valorizzato, la dashboard deve presentarlo; `null` = LAN aperta |
 | `stations[]` | id, etichetta, sorgente NDI, segmento WLED e URL del relè per ogni poltrona |
-| `video_driver` / `lights_driver` / `relay_driver` | `mock` per ora; `ndi`, `wled`, `shelly` da M2/M3 |
+| `video_driver` | `webrtc` (predefinito), `ndi` o `mock` |
+| `webrtc_ready_timeout_ms` | quanto attendere la conferma della pagina `/feed/` (5 s) |
+| `webrtc_constraints` | risoluzione, frame rate e trattamento audio richiesti alla webcam |
+| `lights_driver` / `relay_driver` | `mock` per ora; `wled`, `shelly` da M3 |
 | `driver_timeout_ms` | timeout di ogni chiamata ai driver (default 1500 ms) |
 | `heartbeat_interval_ms` | cadenza dell'heartbeat verso i client (2 s) |
 | `station_offline_timeout_ms` | oltre questo silenzio la poltrona è OFFLINE (6 s) |
@@ -82,7 +90,76 @@ la pagina `/log` di M4 leggerà da qui.
 tail -f data/events.jsonl
 ```
 
-## Driver video NDI (M2)
+## Percorso video WebRTC (M2)
+
+```json
+"video_driver": "webrtc",
+"webrtc_ready_timeout_ms": 5000,
+"webrtc_constraints": {
+  "video": { "width": 1280, "height": 720, "frameRate": 30 },
+  "audio": { "echoCancellation": false, "noiseSuppression": false, "autoGainControl": false }
+}
+```
+
+Come funziona:
+
+1. la pagina poltrona apre webcam e microfono **all'avvio** (non all'autorizzazione), così
+   andare in onda è immediato e un dispositivo rotto si scopre prima della puntata: la
+   dashboard mostra il badge `cam ko` e la poltrona una scritta rossa in basso;
+2. all'autorizzazione il server dice alla poltrona di pubblicare e alla pagina `/feed/` chi
+   guardare; le due si scambiano l'offerta WebRTC **attraverso il server**, sullo stesso
+   WebSocket di tutto il resto;
+3. il passo "video" della sequenza si considera concluso solo quando `/feed/` conferma che il
+   flusso sta suonando davvero (`feed_ready`): la poltrona vede "SEI IN ONDA" **dopo** che il
+   mixer sta ricevendo la sua immagine;
+4. alla chiusura il feed torna nero e la poltrona smette di pubblicare.
+
+Niente STUN, niente TURN: i peer sono nella stessa LAN e si scambiano solo candidati host,
+quindi nessun traffico esce dalla rete (regola §2.5).
+
+### La pagina /feed/ sul PC di regia
+
+Va aperta in Chromium kiosk sul monitor collegato al mixer:
+
+```
+chromium --kiosk --autoplay-policy=no-user-gesture-required \
+  --window-position=1920,0 http://localhost:8080/feed/
+```
+
+`--autoplay-policy=no-user-gesture-required` è **necessario**: senza, il browser blocca la
+riproduzione con audio finché qualcuno non clicca (in quel caso la pagina mostra da sola un
+avviso da toccare). `--window-position` va impostato sull'origine del secondo monitor.
+
+Per il collaudo, `http://localhost:8080/feed/?debug=1` aggiunge una riga di stato in basso a
+sinistra; senza `?debug=1` la pagina è nera e basta, come dev'essere un feed pulito.
+
+L'audio esce dal dispositivo audio predefinito di Windows: per farlo viaggiare dentro l'HDMI
+verso il mixer, imposta come predefinita l'uscita audio HDMI di quel monitor.
+
+### Permessi webcam sulle poltrone
+
+Chromium chiede il permesso per webcam e microfono. In kiosk conviene concederlo una volta
+per sempre all'origine del server:
+
+```
+chromium --kiosk --use-fake-ui-for-media-stream \
+  "http://<ip-server>:8080/poltrona/?id=post-01"
+```
+
+In alternativa, criterio aziendale `VideoCaptureAllowedUrls` / `AudioCaptureAllowedUrls` con
+l'origine del server, oppure concedere il permesso a mano la prima volta (Chromium lo ricorda
+per quell'origine).
+
+### Se qualcosa non funziona
+
+| Sintomo | Causa tipica |
+| --- | --- |
+| Banner rosso "nessun ricevitore feed collegato" | la pagina `/feed/` non è aperta sul PC di regia |
+| Badge `cam ko` su una poltrona | permesso negato, webcam scollegata o occupata da un altro programma |
+| Feed nero con poltrona in onda | il feed non ha confermato entro `webrtc_ready_timeout_ms`: guarda `/feed/?debug=1` |
+| Video sì, audio no | l'uscita audio di Windows non è quella HDMI, oppure l'autoplay è bloccato |
+
+## Alternativa: driver video NDI
 
 Per commutare davvero il feed, in `config.json`:
 
@@ -133,69 +210,41 @@ stati e display delle poltrone continuano a funzionare. Disattivandolo, il serve
 subito hardware e stato corrente. Serve quando si passa in regia manuale o quando un driver
 sta dando problemi.
 
-## Prerequisiti hardware e software (fuori da questo repository)
+## Prerequisiti hardware e software
 
-Questo software **non** cattura né pubblica il video delle poltrone: si limita a dire a NDI
-Studio Monitor quale sorgente mostrare. Perché il sistema funzioni servono:
+Con il percorso WebRTC predefinito il sistema è autosufficiente: servono solo Node sul PC di
+regia e Chromium sulle macchine.
 
-1. su ogni mini PC poltrona, un emittente NDI di webcam+microfono (vedi sotto);
-2. sul PC di regia, NDI Studio Monitor a schermo intero sull'uscita HDMI collegata al mixer,
-   con l'interfaccia web raggiungibile su `ndi_monitor_url`;
-3. le poltrone in Chromium kiosk su `/poltrona/?id=post-0N`.
+1. **Poltrone**: mini PC con webcam e microfono, Chromium in kiosk su
+   `/poltrona/?id=post-0N` con il permesso media concesso all'origine del server.
+2. **Regia**: questo server, più Chromium in kiosk su `/feed/` a schermo intero sull'uscita
+   HDMI collegata al mixer.
+3. **Rete**: tutte le macchine sulla stessa LAN. Nessun accesso a internet.
 
-Con `video_driver: "mock"` nulla di tutto questo è necessario: il driver logga soltanto.
-
-### Pubblicare webcam + microfono da ogni poltrona (OBS + DistroAV)
-
-NDI Tools **riceve** ma non pubblica una webcam: Screen Capture cattura lo schermo e Webcam
-Input fa il percorso inverso (da NDI a webcam virtuale). Per mandare in rete webcam e
-microfono della poltrona la strada collaudata è OBS Studio con il plugin NDI **DistroAV**
-(l'ex obs-ndi), gratuito e open source.
-
-Su ogni mini PC, una volta sola:
-
-1. rinomina il PC in `POLTRONA-1` … `POLTRONA-7` (il nome finisce dentro il nome NDI);
-2. installa **OBS Studio**, poi **DistroAV** e il **runtime NDI** che il plugin richiede;
-3. in OBS crea una scena con due sorgenti: *Dispositivo di acquisizione video* (la webcam) e
-   *Cattura audio in ingresso* (il microfono della poltrona);
-4. `Strumenti → NDI Output Settings` → abilita **Main Output** e dai un nome stabile
-   (es. `POLTRONA-1`). L'uscita principale porta con sé anche l'audio del programma, quindi
-   il microfono viaggia insieme al video; le uscite NDI *per singola sorgente* invece hanno
-   limiti sull'audio, quindi usa la Main Output;
-5. imposta l'avvio automatico di OBS al login (cartella Esecuzione automatica) con
-   `--startvirtualcam` non necessario, ma con la scena giusta già attiva;
-6. firewall di Windows: consenti OBS e NDI sulla rete **privata** (discovery mDNS su UDP
-   5353, flussi TCP dalla 5960 in su). Con il firewall attivo le sorgenti semplicemente
-   "non si vedono", senza alcun messaggio di errore.
-
-Il nome NDI risultante ha la forma `NOME-MACCHINA (Nome uscita)`, ad esempio
-`POLTRONA-1 (POLTRONA-1)`. Copialo **esatto** in `stations[].ndi_source`: usa
-`npm run ndi:sources` per leggere i nomi veri visti da Studio Monitor.
-
-Alternativa senza PC di mezzo: telecamere con NDI nativo (NDI|HX), che pubblicano da sole e
-tolgono OBS dall'equazione. Costano di più ma sono una cosa in meno che può rompersi in diretta.
+Con `video_driver: "ndi"` servono invece NDI Studio Monitor sul PC di regia e un emittente
+NDI su ogni poltrona (vedi §Alternativa).
 
 ### Banda di rete
 
-NDI trasmette **solo quando qualcuno è in ascolto**. Poiché Studio Monitor riceve una
-sorgente alla volta, sulla rete viaggia un flusso solo (qualche decina di Mbit/s), non sette:
-una LAN gigabit è ampiamente sufficiente. Le poltrone non in onda non consumano banda.
+Pubblica solo la poltrona in onda: il server dice alle altre di non trasmettere, quindi sulla
+rete viaggia **un flusso alla volta** (qualche Mbit/s a 720p30), non sette. Una LAN a 100 Mbit
+basterebbe; con una gigabit si sta larghi. Le poltrone non in onda non consumano banda.
 
 ### Audio verso il mixer
 
-L'audio NDI arriva a Studio Monitor, che lo riproduce su un **dispositivo audio di Windows**:
-non finisce automaticamente dentro l'HDMI. Se il mixer si aspetta l'audio embedded nell'HDMI,
-imposta l'uscita audio di Studio Monitor sul dispositivo HDMI corrispondente; in alternativa
-prendi l'audio dalla scheda audio del PC di regia e portalo al mixer separatamente.
+L'audio arriva alla pagina `/feed/` ed esce dal **dispositivo audio predefinito di Windows**
+sul PC di regia: non finisce automaticamente dentro l'HDMI. Se il mixer si aspetta l'audio
+embedded, imposta come predefinita l'uscita audio HDMI di quel monitor; altrimenti preleva
+l'audio dalla scheda del PC e portalo al banco separatamente.
 
-Se il microfono della poltrona è già cablato al banco audio, **non mandare lo stesso
-microfono anche via NDI**: sommeresti due volte la stessa voce con ritardi diversi.
+Se il microfono della poltrona è già cablato al banco audio, **non mandare la stessa voce
+anche via WebRTC**: sommeresti due volte lo stesso audio con ritardi diversi. In quel caso
+metti `"audio": false` in `webrtc_constraints`.
 
-### Latenza della commutazione
+### Latenza e taglio pulito
 
-Il cambio sorgente in Studio Monitor non è a livello di frame: la connessione al nuovo flusso
-NDI richiede una frazione di secondo, durante la quale il feed pulito può restare nero o
-fermo. Il taglio pulito lo fa il mixer: tratta questa uscita HDMI come una sorgente e stacca
-tu quando l'immagine è arrivata. Il software rispetta comunque l'ordine rigido
-video → view → luci, quindi la poltrona vede "SEI IN ONDA" dopo che la sorgente è stata
-commutata.
+In LAN la latenza WebRTC è nell'ordine dei 100-200 ms, ma la commutazione **non è a livello di
+frame**: l'handshake richiede qualche centinaio di millisecondi. Il taglio pulito lo fa il
+mixer, che tratta questa uscita HDMI come una sorgente. Il software garantisce comunque che la
+poltrona veda "SEI IN ONDA" solo **dopo** che il feed sta effettivamente trasmettendo la sua
+immagine, quindi non esiste il caso "l'ospite parla ma il mixer riceve ancora nero".

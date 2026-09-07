@@ -35,11 +35,16 @@
     return;
   }
 
+  var mediaWarning = document.getElementById('media-warning');
+
   var bridge = new Bridge({
     role: 'station',
     station: stationId,
     onSync: render,
     onLink: render,
+    onMessage: function (msg) {
+      publisher.handle(msg);
+    },
     onError: function (msg) {
       if (msg.code === 'unknown_station') {
         document.getElementById('unknown-id').textContent = stationId;
@@ -47,6 +52,26 @@
       }
     }
   });
+
+  // Webcam and microphone are acquired once, at load, so that going on air is
+  // instant and a broken device is spotted before the show, not during it.
+  var publisher = new StationPublisher(bridge, {
+    constraints: window.REGIA_CONSTRAINTS || { video: true, audio: true },
+    onStatus: function (ok, message) {
+      mediaWarning.hidden = ok;
+      if (!ok && message) mediaWarning.textContent = 'Webcam o microfono non disponibili — ' + message;
+    }
+  });
+
+  fetch('/api/ui-config')
+    .then(function (r) { return r.json(); })
+    .then(function (cfg) {
+      if (cfg.webrtc_constraints) publisher.constraints = cfg.webrtc_constraints;
+    })
+    .catch(function () {})
+    .then(function () {
+      publisher.start();
+    });
 
   document.getElementById('btn-request').addEventListener('click', function () {
     bridge.send({ type: 'request_floor' });

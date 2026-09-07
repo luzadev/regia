@@ -261,7 +261,7 @@ test('snapshot is the full documented state and hides internals', () => {
   assert.equal(snap.stations.length, 3);
   assert.deepEqual(Object.keys(snap.stations[0]).sort(), [
     'connected', 'countdown_total_s', 'deadline', 'denied_until', 'id',
-    'label', 'live_since', 'name', 'requested_at', 'state'
+    'label', 'live_since', 'media', 'name', 'requested_at', 'state'
   ]);
 });
 
@@ -273,4 +273,28 @@ test('manual mode is a flag, not a state change', () => {
   assert.equal(studio.manualMode, true);
   assert.equal(studio.get('post-01').state, 'LIVE');
   assert.equal(studio.setManualMode(true).changed, false);
+});
+
+test('media status is reported per station and cleared when it disconnects', () => {
+  const { studio } = makeStudio();
+  studio.setConnected('post-01', true);
+  assert.deepEqual(studio.get('post-01').media, { ok: null, message: null });
+
+  studio.setMedia('post-01', true);
+  assert.deepEqual(studio.get('post-01').media, { ok: true, message: null });
+
+  studio.setMedia('post-01', false, 'Permesso negato');
+  assert.deepEqual(studio.get('post-01').media, { ok: false, message: 'Permesso negato' });
+
+  // A station that is gone tells us nothing about its camera any more.
+  studio.setConnected('post-01', false);
+  assert.deepEqual(studio.get('post-01').media, { ok: null, message: null });
+  assert.equal(studio.setMedia('post-99', true).code, 'unknown_station');
+});
+
+test('snapshot carries the feed status for the dashboard', () => {
+  const { studio } = makeStudio();
+  const feed = { receivers: 1, target: 'post-01', ready: true };
+  assert.deepEqual(studio.snapshot({}, feed).feed, feed);
+  assert.equal(studio.snapshot({}).feed, null);
 });

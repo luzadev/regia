@@ -8,7 +8,7 @@ Studio televisivo con 7 poltrone ospiti. Ogni poltrona ha un mini PC con monitor
 
 Questo repository contiene il software: backend, pagina poltrona, dashboard regia e driver.
 
-**Fuori scope, ma necessario al sistema**: la pubblicazione delle sorgenti NDI dalle poltrone (webcam+microfono → rete) è a carico di un software di terze parti sui mini PC (NDI Scan Converter, OBS con output NDI o equivalente), e la seconda uscita HDMI del server è pilotata da NDI Studio Monitor a schermo intero. Vedi README §Prerequisiti.
+**Percorso video: WebRTC in casa.** La pagina poltrona pubblica webcam+microfono via WebRTC; sulla seconda uscita HDMI del PC di regia gira Chromium in kiosk sulla pagina `/feed/`, che mostra la poltrona autorizzata ed è il feed pulito verso il mixer. Il signalling passa sul WebSocket già esistente, senza STUN né TURN (solo candidati host in LAN). Nessun software di terze parti sulle poltrone. Il driver NDI (`video.ndi.js`, Studio Monitor) resta nel repository come alternativa selezionabile da config.
 
 ## 2. Regole di prodotto NON negoziabili
 
@@ -24,6 +24,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
 
 - **Backend**: Node.js 20+, Express + `ws` (WebSocket). Un solo processo.
 - **Frontend**: HTML/CSS/JS vanilla, servito dal backend. Nessun framework, nessun build step, nessun bundler. Deve girare su Chromium in kiosk su hardware modesto (N100).
+- **Video/audio**: WebRTC nativo del browser (nessuna libreria), signalling sul WebSocket esistente, `iceServers: []`.
 - **Stato**: in memoria, con log eventi append-only su file JSONL (per la cronologia dei tempi di parola). Niente database. Unica eccezione alla memoria volatile: i nomi ospite (vedi §6).
 - **Configurazione**: un solo file `config.json` (vedi §6).
 - Lingua: codice e commit in inglese; testi UI in italiano.
@@ -34,9 +35,11 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
 /server
   index.js            # entrypoint: http + ws + orchestrazione driver
   state.js            # macchina a stati e coda (nessuna I/O, testabile)
+  feed.js             # hub WebRTC: quale poltrona sta sul feed, relay del signalling
   drivers/
     video.mock.js     # driver video finto (logga soltanto)
-    video.ndi.js      # commuta sorgente via HTTP di NDI Studio Monitor (M2)
+    video.webrtc.js   # punta la pagina /feed/ sulla poltrona autorizzata (M2)
+    video.ndi.js      # alternativa: commuta sorgente via HTTP di NDI Studio Monitor
     lights.mock.js
     lights.wled.js    # WLED JSON API (M3)
     relay.shelly.js   # accensione barre LED via Shelly/relè HTTP (M3)
@@ -44,7 +47,8 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
 /public
   poltrona/           # pagina poltrona: /poltrona/?id=post-01
   regia/              # dashboard: /regia/
-  shared/             # css comune, client ws con riconnessione
+  feed/               # feed pulito verso il mixer: /feed/ (Chromium kiosk su HDMI 2)
+  shared/             # css comune, client ws con riconnessione, WebRTC
 /scripts
   sim.js              # simulatore poltrone (npm run sim)
 /test
@@ -71,6 +75,8 @@ Transizioni:
 Se un'altra poltrona è LIVE al momento di un'autorizzazione, il server esegue prima la sequenza completa di chiusura, poi quella di apertura. La poltrona chiusa torna in `IDLE` e **non** rientra in coda.
 
 Sequenza apertura (ordine rigido): commuta sorgente video → view "LIVE" alla poltrona (`state_sync`) → luci ON. Sequenza chiusura: inversa (luci OFF → `state_sync` → sorgente nera).
+
+Con il driver WebRTC il primo passo si considera concluso **solo quando la pagina `/feed/` conferma che il video sta effettivamente andando in onda** (`feed_ready`): la poltrona non vede mai "SEI IN ONDA" prima che il mixer stia ricevendo la sua immagine. Durante la sequenza gli aggiornamenti verso le poltrone sono sospesi, mentre la dashboard continua ad aggiornarsi (l'operatore deve vedere che sta succedendo qualcosa).
 
 Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e attesa. **Alla chiusura non c'è auto-autorizzazione**: il passaggio al successivo è sempre un'azione esplicita della regia (pulsante "Autorizza il primo" / `POST /api/grant-next`).
 
@@ -117,7 +123,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 
 ## 7. Protocollo WebSocket
 
-Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control", "station": "post-01", "token": "..." }`. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso): un kiosk ricaricato non resta bloccato.
+Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed", "station": "post-01", "token": "..." }`. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso): un kiosk ricaricato non resta bloccato.
 
 ```
 station → server : { "type": "request_floor" }
@@ -135,6 +141,19 @@ server → tutti   : { "type": "heartbeat", "t": <epoch_ms> }  // ogni heartbeat
 server → mittente: { "type": "error", "code": "...", "message": "..." }  // comando rifiutato
 ```
 
+Percorso video WebRTC:
+
+```
+station → server : { "type": "media_status", "ok": true|false, "message": "..." }  // webcam/mic
+server → station : { "type": "feed_start" } | { "type": "feed_stop" }
+server → feed    : { "type": "feed_target", "station": "post-03"|null }
+feed   → server  : { "type": "feed_ready", "station": "post-03" }
+feed   → server  : { "type": "feed_error", "station": "post-03", "message": "..." }
+station ↔ server ↔ feed : { "type": "rtc_signal", "station": "post-03", "data": { sdp | candidate } }
+```
+
+Il server fa da solo relay del signalling, e **solo per la poltrona attualmente puntata dal feed**: una poltrona non in onda non può aprire un canale verso il feed.
+
 Il `+/- 30 s` è sempre `countdown_adjust` gestito dal server (mai un ricalcolo del client), così due click ravvicinati non si sovrascrivono.
 
 Schema di `state_sync`:
@@ -146,10 +165,12 @@ Schema di `state_sync`:
   "manual_mode": false,
   "live": "post-03",
   "drivers": { "video": { "status": "ok" }, "lights": { "status": "error", "message": "..." } },
+  "feed": { "receivers": 1, "target": "post-03", "ready": true },
   "stations": [
     { "id": "post-01", "label": "Poltrona 1", "name": "Rossi", "state": "REQUESTED",
       "connected": true, "requested_at": 1709999990000, "live_since": null,
-      "deadline": null, "countdown_total_s": null, "denied_until": null }
+      "deadline": null, "countdown_total_s": null, "denied_until": null,
+      "media": { "ok": true, "message": null } }
   ]
 }
 ```
@@ -164,7 +185,9 @@ Il countdown è calcolato dal server (`deadline` epoch nel `state_sync`); i clie
 
 Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per countdown più brevi si usano le soglie proporzionali 50% e 25%.
 
-**Dashboard regia** (`/regia/`): colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline ed errori driver. Utilizzabile anche da touch.
+**Feed pulito** (`/feed/`): pagina nera a riposo, mostra in fullscreen la poltrona autorizzata con il suo audio. Nessun testo, nessun overlay (con `?debug=1` una riga di stato per il collaudo). Va aperta in Chromium kiosk sulla seconda uscita HDMI del PC di regia, quella collegata al mixer.
+
+**Dashboard regia** (`/regia/`): colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
 
 **Modalità manuale**: il server smette di comandare video e luci (coda, stati e display continuano a funzionare). Alla riattivazione il server **risincronizza subito** i driver con lo stato corrente.
 
@@ -173,7 +196,7 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 ## 9. Milestone (in quest'ordine)
 
 - **M1 — Core loop con driver mock.** Server, macchina a stati, pagina poltrona, dashboard, countdown, heartbeat/OFFLINE, log JSONL. Collaudo: aprire 7 tab `poltrona` + 1 tab `regia` e verificare l'intero giro richiesta→coda→autorizza→countdown→chiudi, il vincolo "una sola LIVE", e il comportamento staccando il server (OFFLINE e recupero).
-- **M2 — Driver video NDI.** Commutazione sorgente tramite l'interfaccia HTTP di NDI Studio Monitor (`ndi_monitor_url`); a riposo sorgente "nera"/nessuna. Il driver deve degradare con grazia: se Studio Monitor non risponde, log di errore, banner in dashboard, il resto continua.
+- **M2 — Percorso video.** WebRTC in casa: la poltrona pubblica webcam+microfono, la pagina `/feed/` li mostra sull'HDMI verso il mixer, il server fa da signalling e decide chi è sul feed. A riposo nero. Degrada con grazia: se manca il ricevitore feed, se la poltrona non ha webcam o se il feed non conferma entro `webrtc_ready_timeout_ms`, si logga l'errore, si accende il banner in dashboard e il resto continua. Il driver NDI resta disponibile come alternativa (`video_driver: "ndi"`).
 - **M3 — Driver luci.** WLED JSON API (`/json/state`, segmenti per poltrona, colori da config) + relè barre via HTTP. Stessa tolleranza ai guasti di M2.
 - **M4 — Rifiniture.** Endpoint Stream Deck, pagina `/log` con cronologia interventi e durate, script/istruzioni di deploy (systemd + Chromium kiosk) nel README.
 
