@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poltrona</title>
+<link rel="stylesheet" href="/shared/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="screen">
+  <section class="view" id="view-idle">
+    <button id="btn-request" class="huge-button">CHIEDI<br>LA PAROLA</button>
+  </section>
+
+  <section class="view" id="view-requested" hidden>
+    <div class="dot amber blink"></div>
+    <h1>RICHIESTA INVIATA</h1>
+    <p class="sub">Attendi la regia</p>
+    <button id="btn-cancel" class="secondary-button">ANNULLA</button>
+  </section>
+
+  <section class="view" id="view-live" hidden>
+    <h1 class="onair">SEI IN ONDA</h1>
+    <div class="ring-wrap" id="ring-wrap">
+      <svg viewBox="0 0 320 320" class="ring">
+        <circle class="ring-bg" cx="160" cy="160" r="140"></circle>
+        <circle id="ring-fg" class="ring-fg" cx="160" cy="160" r="140"></circle>
+      </svg>
+      <div class="ring-text">
+        <div id="clock" class="clock">--:--</div>
+        <div id="expired" class="expired" hidden>TEMPO SCADUTO</div>
+      </div>
+    </div>
+    <p class="sub" id="live-name"></p>
+  </section>
+
+  <section class="view" id="view-denied" hidden>
+    <h1 class="denied">RICHIESTA NON ACCOLTA</h1>
+    <p class="sub">Riprova tra poco</p>
+  </section>
+
+  <section class="view" id="view-offline" hidden>
+    <h1 class="offline">SISTEMA NON DISPONIBILE</h1>
+    <p class="sub">Riconnessione in corso…</p>
+  </section>
+
+  <section class="view" id="view-unknown" hidden>
+    <h1 class="offline">POLTRONA NON CONFIGURATA</h1>
+    <p class="sub" id="unknown-id"></p>
+  </section>
+</main>
+<script src="/shared/bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

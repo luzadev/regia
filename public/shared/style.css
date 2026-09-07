@@ -1,0 +1,56 @@
+/* Shared dark theme for kiosk screens and the control room dashboard. */
+:root {
+  --bg: #0b0d10;
+  --panel: #14181d;
+  --panel-2: #1b2027;
+  --line: #2a323c;
+  --text: #f2f5f8;
+  --muted: #8b97a6;
+  --green: #16c463;
+  --amber: #ffaa00;
+  --amber-deep: #ff7a00;
+  --red: #ff2d2d;
+  --blue: #3b82f6;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.35; cursor: default; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge.idle { background: #232a33; color: var(--muted); }
+.badge.requested { background: rgba(255,170,0,0.18); color: var(--amber); }
+.badge.live { background: rgba(255,45,45,0.2); color: var(--red); }
+.badge.denied { background: rgba(255,255,255,0.08); color: var(--muted); }
+.badge.offline { background: rgba(255,255,255,0.06); color: var(--muted); }
+
+@keyframes blink { 50% { opacity: 0.25; } }
+.blink { animation: blink 1s steps(1, end) infinite; }
