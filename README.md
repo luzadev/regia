@@ -133,15 +133,69 @@ stati e display delle poltrone continuano a funzionare. Disattivandolo, il serve
 subito hardware e stato corrente. Serve quando si passa in regia manuale o quando un driver
 sta dando problemi.
 
-## Prerequisiti hardware (fuori da questo repository)
+## Prerequisiti hardware e software (fuori da questo repository)
 
 Questo software **non** cattura né pubblica il video delle poltrone: si limita a dire a NDI
 Studio Monitor quale sorgente mostrare. Perché il sistema funzioni servono:
 
-1. su ogni mini PC, un emittente NDI di webcam+microfono (NDI Scan Converter, OBS con
-   output NDI o equivalente), con il nome sorgente indicato in `stations[].ndi_source`;
-2. sul PC di regia, NDI Studio Monitor a schermo intero sulla **seconda** uscita HDMI,
-   collegata al mixer, con l'interfaccia web abilitata su `ndi_monitor_url`;
+1. su ogni mini PC poltrona, un emittente NDI di webcam+microfono (vedi sotto);
+2. sul PC di regia, NDI Studio Monitor a schermo intero sull'uscita HDMI collegata al mixer,
+   con l'interfaccia web raggiungibile su `ndi_monitor_url`;
 3. le poltrone in Chromium kiosk su `/poltrona/?id=post-0N`.
 
-Con `video_driver: "mock"` (M1) nulla di tutto questo è necessario: il driver logga soltanto.
+Con `video_driver: "mock"` nulla di tutto questo è necessario: il driver logga soltanto.
+
+### Pubblicare webcam + microfono da ogni poltrona (OBS + DistroAV)
+
+NDI Tools **riceve** ma non pubblica una webcam: Screen Capture cattura lo schermo e Webcam
+Input fa il percorso inverso (da NDI a webcam virtuale). Per mandare in rete webcam e
+microfono della poltrona la strada collaudata è OBS Studio con il plugin NDI **DistroAV**
+(l'ex obs-ndi), gratuito e open source.
+
+Su ogni mini PC, una volta sola:
+
+1. rinomina il PC in `POLTRONA-1` … `POLTRONA-7` (il nome finisce dentro il nome NDI);
+2. installa **OBS Studio**, poi **DistroAV** e il **runtime NDI** che il plugin richiede;
+3. in OBS crea una scena con due sorgenti: *Dispositivo di acquisizione video* (la webcam) e
+   *Cattura audio in ingresso* (il microfono della poltrona);
+4. `Strumenti → NDI Output Settings` → abilita **Main Output** e dai un nome stabile
+   (es. `POLTRONA-1`). L'uscita principale porta con sé anche l'audio del programma, quindi
+   il microfono viaggia insieme al video; le uscite NDI *per singola sorgente* invece hanno
+   limiti sull'audio, quindi usa la Main Output;
+5. imposta l'avvio automatico di OBS al login (cartella Esecuzione automatica) con
+   `--startvirtualcam` non necessario, ma con la scena giusta già attiva;
+6. firewall di Windows: consenti OBS e NDI sulla rete **privata** (discovery mDNS su UDP
+   5353, flussi TCP dalla 5960 in su). Con il firewall attivo le sorgenti semplicemente
+   "non si vedono", senza alcun messaggio di errore.
+
+Il nome NDI risultante ha la forma `NOME-MACCHINA (Nome uscita)`, ad esempio
+`POLTRONA-1 (POLTRONA-1)`. Copialo **esatto** in `stations[].ndi_source`: usa
+`npm run ndi:sources` per leggere i nomi veri visti da Studio Monitor.
+
+Alternativa senza PC di mezzo: telecamere con NDI nativo (NDI|HX), che pubblicano da sole e
+tolgono OBS dall'equazione. Costano di più ma sono una cosa in meno che può rompersi in diretta.
+
+### Banda di rete
+
+NDI trasmette **solo quando qualcuno è in ascolto**. Poiché Studio Monitor riceve una
+sorgente alla volta, sulla rete viaggia un flusso solo (qualche decina di Mbit/s), non sette:
+una LAN gigabit è ampiamente sufficiente. Le poltrone non in onda non consumano banda.
+
+### Audio verso il mixer
+
+L'audio NDI arriva a Studio Monitor, che lo riproduce su un **dispositivo audio di Windows**:
+non finisce automaticamente dentro l'HDMI. Se il mixer si aspetta l'audio embedded nell'HDMI,
+imposta l'uscita audio di Studio Monitor sul dispositivo HDMI corrispondente; in alternativa
+prendi l'audio dalla scheda audio del PC di regia e portalo al mixer separatamente.
+
+Se il microfono della poltrona è già cablato al banco audio, **non mandare lo stesso
+microfono anche via NDI**: sommeresti due volte la stessa voce con ritardi diversi.
+
+### Latenza della commutazione
+
+Il cambio sorgente in Studio Monitor non è a livello di frame: la connessione al nuovo flusso
+NDI richiede una frazione di secondo, durante la quale il feed pulito può restare nero o
+fermo. Il taglio pulito lo fa il mixer: tratta questa uscita HDMI come una sorgente e stacca
+tu quando l'immagine è arrivata. Il software rispetta comunque l'ordine rigido
+video → view → luci, quindi la poltrona vede "SEI IN ONDA" dopo che la sorgente è stata
+commutata.
