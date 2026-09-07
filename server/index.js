@@ -279,6 +279,35 @@ function lanAddresses() {
 }
 const wss = new WebSocketServer({ server, path: '/ws' });
 
+/**
+ * A server that cannot take its port must fail loudly and stop: otherwise the
+ * uncaughtException handler swallows the bind error, the process stays alive
+ * doing nothing, and an older instance keeps answering - which looks exactly
+ * like a bug in the code you just changed.
+ *
+ * The handler is attached to BOTH emitters on purpose. `ws` re-emits the HTTP
+ * server's errors on the WebSocketServer, and its listener is registered
+ * first, so a handler on the HTTP server alone never runs.
+ */
+function onServerError(e) {
+  if (e && (e.code === 'EADDRINUSE' || e.code === 'EACCES')) {
+    const port = config.http_port || 8080;
+    console.error(
+      e.code === 'EADDRINUSE'
+        ? `[regia] porta ${port} già occupata: un altro server è in ascolto, chiudilo prima di riavviare.`
+        : `[regia] porta ${port} non consentita: servono privilegi o un'altra porta.`
+    );
+    log.event('listen_error', { code: e.code, message: e.message });
+    process.exit(1);
+  }
+  // Anything else is a runtime hiccup: report it, never take the show down.
+  console.error(`[regia] errore del server: ${e.message}`);
+  log.event('server_error', { code: e.code, message: e.message });
+}
+
+server.on('error', onServerError);
+wss.on('error', onServerError);
+
 /** All authenticated sockets. Station sockets also live in `stationSockets`. */
 const clients = new Set();
 const stationSockets = new Map();

@@ -93,3 +93,37 @@
 .savebar button { padding: 12px 22px; font-size: 15px; font-weight: 700; }
 .save-hint { color: var(--muted); font-size: 13px; }
 .save-hint.dirty { color: var(--amber); }
+
+/* Guide: open by default, because the people who need it are the ones who have
+   never seen this page. Collapsible for everyone else. */
+.guide summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.guide summary::-webkit-details-marker { display: none; }
+.guide summary h2 { margin: 0; }
+.guide-toggle { font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.guide[open] summary { margin-bottom: 16px; }
+
+.guide-body { display: grid; grid-template-columns: minmax(320px, 2fr) minmax(260px, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 900px) { .guide-body { grid-template-columns: 1fr; } }
+
+.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; }
+.steps li { color: var(--muted); font-size: 15px; line-height: 1.55; }
+.steps li::marker { color: var(--amber); font-weight: 700; }
+.steps b { color: var(--text); font-weight: 600; }
+.steps em { color: var(--text); font-style: normal; border-bottom: 1px dashed var(--line); }
+.steps code, .guide-notes code {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: 12.5px; font-family: ui-monospace, Menlo, monospace;
+}
+
+.guide-notes { display: flex; flex-direction: column; gap: 16px; }
+.guide-notes h3 { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.guide-notes p, .guide-notes li { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.guide-notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.guide-notes b { color: var(--text); }

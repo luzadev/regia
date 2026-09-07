@@ -389,6 +389,10 @@ caso delle postazioni aggiunte al volo dalla dashboard, che hanno il video ma no
 Salvando, le impostazioni finiscono in `config.json` e i driver vengono **ricaricati a caldo**:
 niente riavvio del server tra un segmento e l'altro.
 
+In cima alla pagina c'è una **guida** con la procedura passo passo (trovare l'indirizzo di
+WLED, scoprire quale segmento è quale poltrona, correggere l'id dell'effetto lampeggiante) e
+cosa succede quando una periferica non risponde. È aperta di default e si richiude con un clic.
+
 **Le due prove sono la parte che conta il giorno dell'installazione**: per ogni poltrona,
 «Spia» e «Barra» accendono per due secondi e poi rimettono tutto com'era. È il modo pratico
 per scoprire quale segmento WLED corrisponde a quale poltrona senza mandare nessuno in onda.

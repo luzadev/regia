@@ -20,6 +20,71 @@
 </header>
 
 <main class="settings">
+  <details class="panel full guide" id="guide" open>
+    <summary><h2>Guida — come si configura</h2><span class="guide-toggle">apri / chiudi</span></summary>
+
+    <div class="guide-body">
+      <ol class="steps">
+        <li>
+          <b>Collega il controller e trova il suo indirizzo.</b>
+          WLED si annuncia in rete: lo trovi dall'app WLED, dalla lista dei dispositivi del
+          router, o provando <code>http://wled.local</code> dal browser. Scrivilo in
+          <em>Indirizzo</em> — se la pagina di WLED si apre nel browser, l'indirizzo è giusto.
+        </li>
+        <li>
+          <b>Passa i driver da <code>mock</code> a reale</b> e premi <em>Salva impostazioni</em>.
+          I driver si ricaricano subito: non serve riavviare il server, nemmeno tra due segmenti.
+          Con <code>mock</code> il sistema funziona ma scrive soltanto nel log: è la modalità
+          giusta per provare senza hardware.
+        </li>
+        <li>
+          <b>Scopri quale segmento è quale poltrona.</b> È il passaggio che fa perdere più tempo
+          in studio, e per questo c'è il pulsante <em>Spia</em>: accende la luce di una poltrona
+          per due secondi e la rispegne. Vai per tentativi, e quando la luce si accende sulla
+          poltrona giusta scrivi quel numero nella colonna <em>Segmento luci</em>.
+          I segmenti vanno impostati prima in WLED (uno per poltrona), e si contano da 0.
+        </li>
+        <li>
+          <b>Stessa cosa per le barre LED.</b> Metti l'indirizzo del relè della poltrona in
+          <em>URL relè</em> (per Shelly gen 1 è tipo <code>http://192.168.10.41/relay/0</code>),
+          salva, poi usa <em>Barra</em> per verificare che si accenda quella giusta.
+        </li>
+        <li>
+          <b>Controlla i colori.</b> I tre stati sono già impostati come li vuole la regia:
+          ambra lampeggiante per chi ha chiesto la parola, rosso fisso per chi è in onda, spento
+          a riposo. Se il lampeggio non lampeggia, non è un guasto: è l'id dell'effetto, che
+          cambia tra le versioni di WLED. Correggi <em>Effetto «lampeggiante»</em> con il numero
+          giusto (lo vedi nell'app WLED, nella lista degli effetti) e riprova.
+        </li>
+        <li>
+          <b>Prova un intervento vero</b> dalla regia: autorizza una poltrona e guarda la
+          sequenza — prima il video, poi la scritta sulla poltrona, poi la luce e la barra.
+        </li>
+      </ol>
+
+      <div class="guide-notes">
+        <div>
+          <h3>Cosa succede se qualcosa non risponde</h3>
+          <p>
+            Niente, alla diretta. La periferica ha un tempo limite (<em>Timeout periferiche</em>),
+            scaduto il quale l'errore finisce nel log, in regia compare il banner ambra
+            <b>DRIVER IN ERRORE</b> e la poltrona va in onda lo stesso con il suo countdown.
+            Quando la periferica torna, il banner si spegne da solo.
+          </p>
+        </div>
+        <div>
+          <h3>Cose da sapere</h3>
+          <ul>
+            <li>Le prove usano le impostazioni <b>già salvate</b>: se hai appena cambiato un indirizzo, salva prima di provare.</li>
+            <li>Le prove non toccano mai una poltrona <b>in onda</b>: il comando viene rifiutato.</li>
+            <li>Una poltrona senza segmento o senza URL relè funziona lo stesso: ha il video, non ha le luci.</li>
+            <li>Tutto finisce in <code>config.json</code>, con una copia di sicurezza in <code>config.json.bak</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
   <section class="panel">
     <h2>Driver</h2>
     <div class="fields">
