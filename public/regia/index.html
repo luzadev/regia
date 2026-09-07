@@ -18,6 +18,7 @@
     <div id="banner-manual" class="banner amber" hidden>MODALITÀ MANUALE — video e luci non sono comandati dal server</div>
   </div>
   <a class="feed-link" href="/feed/" target="_blank" rel="noopener">Apri feed</a>
+  <button id="btn-guide" class="feed-link" type="button">Guida</button>
   <a class="feed-link" href="/impostazioni/">Impostazioni</a>
   <label class="manual-toggle">
     <input type="checkbox" id="manual-mode"> Modalità manuale
@@ -86,6 +87,52 @@
     <div id="grid" class="grid"></div>
   </section>
 </main>
+
+<dialog class="guide-dialog" id="guida">
+  <form method="dialog" class="guide-head">
+    <h2>Guida rapida — come si conduce una puntata</h2>
+    <button class="guide-close" value="chiudi" aria-label="Chiudi la guida">Chiudi</button>
+  </form>
+
+  <div class="guide-body">
+    <div>
+      <h3>Prima di cominciare</h3>
+      <ol class="steps">
+        <li>Apri <b>Feed</b> sul monitor collegato al mixer, a schermo intero. Se il banner rosso «nessun ricevitore feed» resta acceso, il mixer non riceverà nulla.</li>
+        <li>Controlla che ogni poltrona sia <b>online</b> e abbia il badge verde <b>cam</b>: senza, quella postazione non può andare in onda.</li>
+        <li>Scrivi i <b>nomi degli ospiti</b> nelle schede: compaiono in coda e nel pannello «in onda», e li ritrovi nella cronologia.</li>
+      </ol>
+    </div>
+
+    <div>
+      <h3>Durante la puntata</h3>
+      <ul class="plain">
+        <li><b>Coda richieste</b> — in ordine di arrivo, con da quanto aspettano. <em>Autorizza il primo</em> manda in onda chi ha chiesto per primo.</li>
+        <li><b>Durata</b> — scegli il countdown <i>prima</i> di autorizzare. Si può sempre cambiare dopo con i preset o ±30 s.</li>
+        <li><b>Autorizzare un'altra poltrona chiude quella in onda</b>, in automatico: c'è una sola uscita verso il mixer.</li>
+        <li><b>Forza in onda</b> manda in onda chi non ha chiesto la parola.</li>
+        <li><b>CHIUDI</b> è l'unico modo di far uscire qualcuno dall'onda. Non lo fa nessun timer, mai.</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>Il countdown non taglia nessuno</h3>
+      <p class="plain">
+        A zero la poltrona vede <b>TEMPO SCADUTO</b> in rosso lampeggiante e il conteggio prosegue
+        in negativo, ma l'intervento resta in onda finché non premi CHIUDI. È una segnalazione
+        per l'ospite, non un limite per la regia.
+      </p>
+      <h3>I banner in alto</h3>
+      <ul class="plain">
+        <li><b>Rosso «server non raggiungibile»</b> — i dati sono congelati e i comandi sono bloccati: quello che vedi non è più aggiornato.</li>
+        <li><b>Rosso «nessun ricevitore feed»</b> — la pagina Feed non è aperta: al mixer non arriva nulla.</li>
+        <li><b>Ambra «driver in errore»</b> — una periferica (video, luci, relè) non risponde. La diretta prosegue lo stesso.</li>
+        <li><b>Ambra «audio del feed muto»</b> — il browser ha bloccato l'audio: basta un clic sulla pagina Feed.</li>
+        <li><b>Ambra «modalità manuale»</b> — coda e display funzionano, ma il server non comanda video e luci.</li>
+      </ul>
+    </div>
+  </div>
+</dialog>
 
 <div id="toast" class="toast" hidden></div>
 <script src="/shared/bridge.js"></script>

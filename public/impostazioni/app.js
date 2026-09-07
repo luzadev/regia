@@ -296,5 +296,21 @@
     }, 3000);
   }
 
+  var guide = document.getElementById('guide');
+  el('btn-guide').addEventListener('click', function () {
+    guide.showModal();
+  });
+
+  // Whoever opens this page for the first time is the one who needs the guide;
+  // afterwards it stays one click away.
+  try {
+    if (!localStorage.getItem('regia.guida-impostazioni')) {
+      guide.showModal();
+      localStorage.setItem('regia.guida-impostazioni', '1');
+    }
+  } catch (e) {
+    /* private window or storage disabled: the button is enough */
+  }
+
   bridge.start();
 })();

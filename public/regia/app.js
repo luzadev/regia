@@ -122,6 +122,10 @@
     if (live) bridge.send({ type: 'countdown_set', station: live.id, seconds: null });
   });
 
+  document.getElementById('btn-guide').addEventListener('click', function () {
+    document.getElementById('guida').showModal();
+  });
+
   el.manual.addEventListener('change', function () {
     bridge.send({ type: 'manual_mode', enabled: el.manual.checked });
   });

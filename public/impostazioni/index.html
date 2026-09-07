@@ -16,12 +16,16 @@
     <div id="banner-drivers" class="banner amber" hidden></div>
     <div id="banner-saved" class="banner ok" hidden>Impostazioni salvate in config.json</div>
   </div>
+  <button id="btn-guide" class="feed-link" type="button">Guida</button>
   <a class="feed-link" href="/regia/">Torna alla regia</a>
 </header>
 
 <main class="settings">
-  <details class="panel full guide" id="guide" open>
-    <summary><h2>Guida — come si configura</h2><span class="guide-toggle">apri / chiudi</span></summary>
+  <dialog class="guide-dialog" id="guide">
+    <form method="dialog" class="guide-head">
+      <h2>Guida — come si configura</h2>
+      <button class="guide-close" value="chiudi" aria-label="Chiudi la guida">Chiudi</button>
+    </form>
 
     <div class="guide-body">
       <ol class="steps">
@@ -83,7 +87,7 @@
         </div>
       </div>
     </div>
-  </details>
+  </dialog>
 
   <section class="panel">
     <h2>Driver</h2>
