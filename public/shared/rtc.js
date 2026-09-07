@@ -83,7 +83,7 @@
     this.codec = options.codec || null;
     this.onStatus = options.onStatus || function () {};
     this.stream = null;
-    this.pc = null;
+    this.peers = {}; // peer id -> RTCPeerConnection (the clean feed, plus previews)
     this.retryTimer = null;
   }
 
@@ -128,30 +128,35 @@
 
   /** Server-driven: the station never decides on its own to go on the feed. */
   StationPublisher.prototype.handle = function (msg) {
-    if (msg.type === 'feed_start') return this.openPeer();
-    if (msg.type === 'feed_stop') return this.closePeer();
-    if (msg.type === 'rtc_signal') return this.onSignal(msg.data);
+    if (msg.type === 'feed_start') return this.openPeer(msg.peer || 'feed', msg.quality);
+    if (msg.type === 'feed_stop') return this.closePeer(msg.peer || 'feed');
+    if (msg.type === 'rtc_signal') return this.onSignal(msg.peer || 'feed', msg.data);
   };
 
-  StationPublisher.prototype.openPeer = function () {
+  /**
+   * `quality` is set for previews (the dashboard): a second full-resolution
+   * encode would cost the mini PC as much as the on-air one for no reason.
+   */
+  StationPublisher.prototype.openPeer = function (peerId, quality) {
     var self = this;
-    this.closePeer();
+    this.closePeer(peerId);
     if (!this.stream) {
       this.bridge.send({ type: 'media_status', ok: false, message: 'Nessun flusso da inviare' });
       return;
     }
+
+    var maxKbps = quality && quality.max_kbps ? quality.max_kbps : this.maxBitrateKbps;
+    var minKbps = quality && quality.max_kbps ? Math.round(quality.max_kbps / 2) : this.minBitrateKbps;
+    var scale = quality && quality.scale ? quality.scale : 1;
+
     var pc = new RTCPeerConnection(RTC_CONFIG);
-    this.pc = pc;
-    window.regiaPeer = pc; // diagnostics: pc.getStats() from the console
+    this.peers[peerId] = pc;
+    if (peerId === 'feed') window.regiaPeer = pc; // diagnostics: pc.getStats()
 
     this.stream.getTracks().forEach(function (track) {
       pc.addTrack(track, self.stream);
     });
 
-    // WebRTC starts low and ramps up over a few seconds. On air that is a
-    // visibly soft first shot, so ask for full resolution and a broadcast-ish
-    // bitrate straight away, and keep resolution over frame rate when the
-    // network tightens.
     var videoSender = pc.getSenders().filter(function (s) {
       return s.track && s.track.kind === 'video';
     })[0];
@@ -172,11 +177,15 @@
         /* the browser keeps its own preference order */
       }
     }
+
+    // WebRTC starts low and ramps up over a few seconds. On air that is a
+    // visibly soft first shot, so ask for the target quality straight away and
+    // keep resolution over frame rate when the network tightens.
     if (videoSender && videoSender.getParameters) {
       try {
         var params = videoSender.getParameters();
         params.degradationPreference = 'maintain-resolution';
-        params.encodings = [{ maxBitrate: (self.maxBitrateKbps || 4000) * 1000, scaleResolutionDownBy: 1 }];
+        params.encodings = [{ maxBitrate: maxKbps * 1000, scaleResolutionDownBy: scale }];
         videoSender.setParameters(params);
       } catch (e) {
         /* older browsers: the defaults still work, just softer at the start */
@@ -184,34 +193,47 @@
     }
 
     pc.onicecandidate = function (ev) {
-      if (ev.candidate) self.bridge.send({ type: 'rtc_signal', data: { candidate: ev.candidate } });
+      if (ev.candidate) {
+        self.bridge.send({ type: 'rtc_signal', peer: peerId, data: { candidate: ev.candidate } });
+      }
     };
 
     pc.createOffer()
       .then(function (offer) {
-        offer.sdp = tuneVideoBitrate(offer.sdp, self.minBitrateKbps, self.maxBitrateKbps);
+        offer.sdp = tuneVideoBitrate(offer.sdp, minKbps, maxKbps);
         return pc.setLocalDescription(offer);
       })
       .then(function () {
-        self.bridge.send({ type: 'rtc_signal', data: { sdp: pc.localDescription } });
+        self.bridge.send({ type: 'rtc_signal', peer: peerId, data: { sdp: pc.localDescription } });
       })
       .catch(function (e) {
-        self.bridge.send({ type: 'media_status', ok: false, message: 'Offerta WebRTC fallita: ' + e.message });
+        if (peerId === 'feed') {
+          self.bridge.send({ type: 'media_status', ok: false, message: 'Offerta WebRTC fallita: ' + e.message });
+        }
       });
   };
 
-  StationPublisher.prototype.closePeer = function () {
-    if (!this.pc) return;
+  StationPublisher.prototype.closePeer = function (peerId) {
+    var pc = this.peers[peerId];
+    if (!pc) return;
     try {
-      this.pc.close();
+      pc.close();
     } catch (e) {}
-    this.pc = null;
+    delete this.peers[peerId];
   };
 
-  StationPublisher.prototype.onSignal = function (data) {
-    if (!this.pc || !data) return;
-    if (data.sdp) this.pc.setRemoteDescription(data.sdp);
-    else if (data.candidate) this.pc.addIceCandidate(data.candidate);
+  StationPublisher.prototype.closeAllPeers = function () {
+    var self = this;
+    Object.keys(this.peers).forEach(function (id) {
+      self.closePeer(id);
+    });
+  };
+
+  StationPublisher.prototype.onSignal = function (peerId, data) {
+    var pc = this.peers[peerId];
+    if (!pc || !data) return;
+    if (data.sdp) pc.setRemoteDescription(data.sdp);
+    else if (data.candidate) pc.addIceCandidate(data.candidate);
   };
 
   /** Runs on the feed page (the clean output to the mixer). */
@@ -222,6 +244,9 @@
     this.onState = options.onState || function () {};
     this.onAudioBlocked = options.onAudioBlocked || function () {};
     this.audioBlocked = false;
+    // A preview never gates the on-air sequence and stays silent: the control
+    // room does not need the guest's voice out of a second speaker.
+    this.preview = options.preview === true;
     this.target = null;
     this.pc = null;
     this.queuedCandidates = [];
@@ -243,7 +268,7 @@
     var self = this;
     var pc = new RTCPeerConnection(RTC_CONFIG);
     this.pc = pc;
-    window.regiaPeer = pc; // diagnostics: pc.getStats() from the console
+    if (!this.preview) window.regiaPeer = pc; // diagnostics: pc.getStats()
     this.queuedCandidates = [];
 
     pc.onicecandidate = function (ev) {
@@ -260,7 +285,7 @@
     };
 
     pc.onconnectionstatechange = function () {
-      if (pc.connectionState === 'failed') {
+      if (pc.connectionState === 'failed' && !self.preview) {
         self.bridge.send({ type: 'feed_error', station: self.target, message: 'connessione WebRTC fallita' });
       }
     };
@@ -268,6 +293,11 @@
 
   FeedReceiver.prototype.play = function () {
     var self = this;
+    if (this.preview) {
+      this.video.muted = true;
+      this.video.play().catch(function () {});
+      return;
+    }
     this.video.muted = false;
     var attempt = this.video.play();
     if (!attempt || !attempt.catch) return;
@@ -327,7 +357,7 @@
           self.bridge.send({ type: 'rtc_signal', station: station, data: { sdp: pc.localDescription } });
         })
         .catch(function (e) {
-          self.bridge.send({ type: 'feed_error', station: station, message: e.message });
+          if (!self.preview) self.bridge.send({ type: 'feed_error', station: station, message: e.message });
         });
     } else if (data.candidate) {
       if (pc.remoteDescription && pc.remoteDescription.type) pc.addIceCandidate(data.candidate);
@@ -338,8 +368,8 @@
   /** Called when the video element actually starts playing: this is the moment
    *  the feed is really carrying the station, and what the server waits for. */
   FeedReceiver.prototype.reportReady = function () {
-    if (this.target) this.bridge.send({ type: 'feed_ready', station: this.target });
-    this.onState('in onda ' + this.target);
+    if (this.target && !this.preview) this.bridge.send({ type: 'feed_ready', station: this.target });
+    this.onState((this.preview ? 'anteprima ' : 'in onda ') + this.target);
   };
 
   FeedReceiver.prototype.teardown = function () {

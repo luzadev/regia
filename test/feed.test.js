@@ -37,7 +37,7 @@ test('a receiver that connects mid-show is told what to display AND restarts the
 
   assert.deepEqual(late.sent[0], { type: 'feed_target', station: 'post-01' });
   // Without this the offer is never re-created and the feed stays black for good.
-  assert.deepEqual(station.sent.pop(), { type: 'feed_start' });
+  assert.deepEqual(station.sent.pop(), { type: 'feed_start', peer: 'feed' });
 });
 
 test('only one receiver at a time: the previous one is closed, not left fighting', () => {
@@ -59,7 +59,7 @@ test('publishing restarts when the camera shows up after the grant', async () =>
 
   station.sent.length = 0;
   assert.equal(hub.restartPublishing('webcam disponibile'), true);
-  assert.deepEqual(station.sent.pop(), { type: 'feed_start' });
+  assert.deepEqual(station.sent.pop(), { type: 'feed_start', peer: 'feed' });
   assert.equal(hub.status().ready, false);
 });
 
@@ -96,7 +96,7 @@ test('pointing the feed at a station starts it and resolves when the feed is pla
   hub.addClient(feed);
 
   const pending = hub.setTarget('post-01');
-  assert.deepEqual(station.sent, [{ type: 'feed_start' }]);
+  assert.deepEqual(station.sent, [{ type: 'feed_start', peer: 'feed' }]);
   assert.deepEqual(feed.sent.pop(), { type: 'feed_target', station: 'post-01' });
 
   hub.markReady('post-01');
@@ -134,7 +134,7 @@ test('going to black stops the previous station and needs no confirmation', asyn
   station.sent.length = 0;
   await hub.setTarget(null);
 
-  assert.deepEqual(station.sent, [{ type: 'feed_stop' }]);
+  assert.deepEqual(station.sent, [{ type: 'feed_stop', peer: 'feed' }]);
   assert.deepEqual(feed.sent.pop(), { type: 'feed_target', station: null });
   assert.equal(hub.status().target, null);
   assert.equal(hub.status().ready, false);
@@ -154,8 +154,8 @@ test('switching stations stops the outgoing one before starting the next', async
   hub.markReady('post-02');
   await second;
 
-  assert.deepEqual(a.sent.pop(), { type: 'feed_stop' });
-  assert.deepEqual(b.sent.pop(), { type: 'feed_start' });
+  assert.deepEqual(a.sent.pop(), { type: 'feed_stop', peer: 'feed' });
+  assert.deepEqual(b.sent.pop(), { type: 'feed_start', peer: 'feed' });
 });
 
 test('only the station on the feed may exchange signalling', () => {
@@ -172,7 +172,7 @@ test('only the station on the feed may exchange signalling', () => {
   assert.deepEqual(feed.sent.pop(), { type: 'rtc_signal', station: 'post-01', data: { sdp: 'offer' } });
 
   assert.equal(hub.relayToStation('post-01', { sdp: 'answer' }), true);
-  assert.deepEqual(station.sent.pop(), { type: 'rtc_signal', data: { sdp: 'answer' } });
+  assert.deepEqual(station.sent.pop(), { type: 'rtc_signal', peer: 'feed', data: { sdp: 'answer' } });
 });
 
 test('the last receiver leaving clears the ready state', async () => {
@@ -184,7 +184,7 @@ test('the last receiver leaving clears the ready state', async () => {
   await pending;
 
   hub.removeClient(feed);
-  assert.deepEqual(hub.status(), { receivers: 0, target: 'post-01', ready: false, audio_blocked: false });
+  assert.deepEqual(hub.status(), { receivers: 0, monitors: 0, target: 'post-01', ready: false, audio_blocked: false });
 });
 
 test('a superseded switch rejects instead of leaving a promise pending forever', async () => {
@@ -197,4 +197,110 @@ test('a superseded switch rejects instead of leaving a promise pending forever',
   hub.markReady('post-02');
   await second;
   await rejected;
+});
+
+test('a preview gets its own peer at reduced quality, without touching the feed', () => {
+  const station = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station } });
+  const feed = fakeSocket();
+  hub.addClient(feed);
+  hub.setTarget('post-01').catch(() => {});
+  station.sent.length = 0;
+
+  const dashboard = fakeSocket();
+  const id = hub.addMonitor(dashboard);
+
+  assert.equal(feed.closedWith, null, 'a preview must never kick the clean feed out');
+  assert.deepEqual(dashboard.sent[0], { type: 'feed_target', station: 'post-01' });
+  const start = station.sent.pop();
+  assert.equal(start.type, 'feed_start');
+  assert.equal(start.peer, id);
+  assert.deepEqual(start.quality, { max_kbps: 600, scale: 2 }, 'a preview must not cost a second full encode');
+  assert.equal(hub.status().monitors, 1);
+  assert.equal(hub.status().receivers, 1);
+});
+
+test('a preview never makes the feed ready and never blocks the sequence', async () => {
+  const station = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station }, readyTimeoutMs: 60 });
+  hub.addClient(fakeSocket());
+  hub.addMonitor(fakeSocket());
+
+  // Only the clean feed's confirmation counts.
+  await assert.rejects(() => hub.setTarget('post-01'), /non ha confermato/);
+  assert.equal(hub.status().ready, false);
+});
+
+test('signalling is routed to the right receiver', () => {
+  const station = fakeSocket();
+  const feed = fakeSocket();
+  const dashboard = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station } });
+  hub.addClient(feed);
+  hub.setTarget('post-01').catch(() => {});
+  const id = hub.addMonitor(dashboard);
+  feed.sent.length = 0;
+  dashboard.sent.length = 0;
+
+  hub.relayFromStation('post-01', { sdp: 'per-il-feed' }, 'feed');
+  assert.deepEqual(feed.sent.pop().data, { sdp: 'per-il-feed' });
+  assert.equal(dashboard.sent.length, 0, 'the preview must not see the feed negotiation');
+
+  hub.relayFromStation('post-01', { sdp: 'per-l-anteprima' }, id);
+  assert.deepEqual(dashboard.sent.pop().data, { sdp: 'per-l-anteprima' });
+
+  station.sent.length = 0;
+  hub.relayToStation('post-01', { sdp: 'risposta' }, id);
+  assert.deepEqual(station.sent.pop(), { type: 'rtc_signal', peer: id, data: { sdp: 'risposta' } });
+
+  assert.equal(hub.relayFromStation('post-01', { sdp: 'x' }, 'mon-999'), false, 'unknown peers are dropped');
+});
+
+test('closing the dashboard stops only its own peer', () => {
+  const station = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station } });
+  hub.addClient(fakeSocket());
+  hub.setTarget('post-01').catch(() => {});
+  const dashboard = fakeSocket();
+  const id = hub.addMonitor(dashboard);
+  station.sent.length = 0;
+
+  hub.removeMonitor(dashboard);
+  assert.deepEqual(station.sent, [{ type: 'feed_stop', peer: id }]);
+  assert.equal(hub.status().monitors, 0);
+  assert.equal(hub.status().target, 'post-01', 'the on-air station is unaffected');
+});
+
+test('switching station stops every peer, previews included', async () => {
+  const a = fakeSocket();
+  const b = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': a, 'post-02': b } });
+  hub.addClient(fakeSocket());
+  const id = hub.addMonitor(fakeSocket());
+  const first = hub.setTarget('post-01');
+  hub.markReady('post-01');
+  await first;
+  a.sent.length = 0;
+
+  const second = hub.setTarget('post-02');
+  hub.markReady('post-02');
+  await second;
+
+  assert.deepEqual(a.sent.map((m) => m.peer).sort(), ['feed', id].sort());
+  assert.ok(a.sent.every((m) => m.type === 'feed_stop'));
+  assert.ok(b.sent.some((m) => m.type === 'feed_start' && m.peer === id), 'the preview follows the new station');
+});
+
+test('the preview runs even with no clean feed receiver: setup needs it most', async () => {
+  const station = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station } });
+  const dashboard = fakeSocket();
+  const id = hub.addMonitor(dashboard);
+
+  // No /feed/ page open: the switch fails, but the preview must still start.
+  await assert.rejects(() => hub.setTarget('post-01'), /nessun ricevitore feed/);
+
+  const start = station.sent.find((m) => m.type === 'feed_start' && m.peer === id);
+  assert.ok(start, 'the station must be told to publish to the preview');
+  assert.deepEqual(start.quality, { max_kbps: 600, scale: 2 });
 });

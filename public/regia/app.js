@@ -34,6 +34,28 @@
     toast: document.getElementById('toast')
   };
 
+  // The preview is a second connection with its own role: the clean feed keeps
+  // its single receiver, and a preview problem never touches what is on air.
+  var previewVideo = document.getElementById('preview');
+  var previewBridge = new Bridge({
+    role: 'monitor',
+    onMessage: function (msg) {
+      preview.handle(msg);
+    },
+    onLink: function (up) {
+      if (!up) preview.setTarget(null);
+    }
+  });
+  var preview = new FeedReceiver(previewBridge, previewVideo, { preview: true });
+
+  var previewAudio = document.getElementById('preview-audio');
+  previewAudio.addEventListener('click', function () {
+    previewVideo.muted = !previewVideo.muted;
+    previewAudio.textContent = previewVideo.muted ? 'AUDIO OFF' : 'AUDIO ON';
+    previewAudio.classList.toggle('on', !previewVideo.muted);
+    if (!previewVideo.muted) previewVideo.play().catch(function () {});
+  });
+
   var presets = [30, 60, 120, 300];
   var cards = {};
   var toastTimer = null;
@@ -341,4 +363,5 @@
   }, 500);
 
   bridge.start();
+  previewBridge.start();
 })();

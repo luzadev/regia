@@ -118,6 +118,20 @@ Come funziona:
 Niente STUN, niente TURN: i peer sono nella stessa LAN e si scambiano solo candidati host,
 quindi nessun traffico esce dalla rete (regola §2.5).
 
+### Anteprima in dashboard
+
+La dashboard mostra in alto al pannello "in onda" **cosa sta uscendo davvero**, con un pulsante
+per ascoltare l'audio (di default muta, per non avere la voce dell'ospite da un secondo
+altoparlante in regia).
+
+L'anteprima è una connessione WebRTC **separata** dal feed pulito, a bassa qualità
+(`webrtc_monitor_quality`, di default 600 kbit/s a mezza risoluzione): un secondo encode a
+piena qualità costerebbe al mini PC quanto quello in onda, per un riquadro di pochi centimetri.
+Non conferma mai l'andata in onda, non genera errori driver e **non scalza il feed pulito**:
+il feed resta a ricevitore singolo.
+
+Funziona anche quando `/feed/` non è ancora aperta, che è la condizione tipica in allestimento.
+
 ### La pagina /feed/ sul PC di regia
 
 Va aperta in Chromium kiosk sul monitor collegato al mixer:
@@ -163,6 +177,7 @@ esplicitamente:
 | `webrtc_min_bitrate_kbps` | pavimento e bitrate iniziale (1500): niente prima inquadratura molle |
 | `webrtc_max_bitrate_kbps` | tetto (4000) |
 | `webrtc_codec` | `null` lascia scegliere il browser; `"H264"` di solito significa codifica hardware sui mini PC, `"VP9"` qualità migliore a parità di banda ma più CPU |
+| `webrtc_monitor_quality` | qualità dell'anteprima in dashboard (`max_kbps`, `scale`) |
 
 Oltre a questo il sender chiede `degradationPreference: maintain-resolution`, cioè in caso di
 difficoltà preferisce perdere fotogrammi che nitidezza — su un talking head è la scelta giusta.

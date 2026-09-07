@@ -36,7 +36,11 @@ const COLORS = config.colors || {};
 
 const log = createLog(path.resolve(ROOT, config.log_path || 'data/events.jsonl'));
 const studio = new Studio(config);
-const feedHub = new FeedHub({ log, readyTimeoutMs: config.webrtc_ready_timeout_ms ?? 5000 });
+const feedHub = new FeedHub({
+  log,
+  readyTimeoutMs: config.webrtc_ready_timeout_ms ?? 5000,
+  monitorQuality: config.webrtc_monitor_quality || null
+});
 
 // --- guest names (only persisted state besides the log) ----------------
 
@@ -276,12 +280,14 @@ wss.on('connection', (ws) => {
     if (!ws.role) return sendError(ws, 'not_identified', 'Presentarsi con hello');
     if (ws.role === 'station') return handleStationMessage(ws, msg);
     if (ws.role === 'feed') return handleFeedMessage(ws, msg);
+    if (ws.role === 'monitor') return handleMonitorMessage(ws, msg);
     return handleControlMessage(ws, msg);
   });
 
   ws.on('close', () => {
     clients.delete(ws);
     if (ws.role === 'feed') feedHub.removeClient(ws);
+    if (ws.role === 'monitor') feedHub.removeMonitor(ws);
     if (ws.role === 'station' && stationSockets.get(ws.stationId) === ws) {
       stationSockets.delete(ws.stationId);
       if (studio.setConnected(ws.stationId, false)) {
@@ -332,6 +338,20 @@ function handleHello(ws, msg) {
     return;
   }
 
+  // Preview receiver (dashboard): watches the on-air station without ever
+  // touching the clean feed.
+  if (msg.role === 'monitor') {
+    if (config.control_token && msg.token !== config.control_token) {
+      sendError(ws, 'unauthorized', 'Token non valido');
+      return ws.close(4003, 'unauthorized');
+    }
+    ws.role = 'monitor';
+    clients.add(ws);
+    ws.monitorId = feedHub.addMonitor(ws);
+    send(ws, studio.snapshot(driverStatus, feedHub.status()));
+    return;
+  }
+
   if (msg.role === 'control') {
     if (config.control_token && msg.token !== config.control_token) {
       sendError(ws, 'unauthorized', 'Token non valido');
@@ -361,8 +381,8 @@ function handleStationMessage(ws, msg) {
       return handleResult(ws, res);
     }
     case 'rtc_signal': {
-      // Only the station the feed is pointed at may reach the receiver.
-      if (!feedHub.relayFromStation(id, msg.data)) {
+      // Only the station the feed is pointed at may reach the receivers.
+      if (!feedHub.relayFromStation(id, msg.data, msg.peer)) {
         return sendError(ws, 'not_on_feed', 'Poltrona non collegata al feed');
       }
       return;
@@ -387,14 +407,22 @@ function handleStationMessage(ws, msg) {
 
 function handleFeedMessage(ws, msg) {
   switch (msg.type) {
-    case 'feed_ready':
-      return feedHub.markReady(msg.station);
+    case 'feed_ready': {
+      feedHub.markReady(msg.station);
+      // The feed recovering on its own (a reloaded receiver, a late camera)
+      // must clear the driver banner too, or the dashboard keeps crying wolf.
+      if (feedHub.ready && video.name === 'video.webrtc' && driverStatus.video.status === 'error') {
+        driverStatus.video = { status: 'ok' };
+        broadcast();
+      }
+      return;
+    }
     case 'feed_error':
       return feedHub.markError(msg.station, msg.message);
     case 'feed_audio':
       return feedHub.setAudioBlocked(msg.blocked) && undefined;
     case 'rtc_signal': {
-      if (!feedHub.relayToStation(msg.station, msg.data)) {
+      if (!feedHub.relayToStation(msg.station, msg.data, 'feed')) {
         return sendError(ws, 'not_on_feed', 'Poltrona non collegata al feed');
       }
       return;
@@ -402,6 +430,14 @@ function handleFeedMessage(ws, msg) {
     default:
       return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
   }
+}
+
+function handleMonitorMessage(ws, msg) {
+  if (msg.type !== 'rtc_signal') {
+    return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
+  }
+  // A preview that fails is a preview problem: it never raises a driver error.
+  feedHub.relayToStation(msg.station, msg.data, ws.monitorId);
 }
 
 function handleControlMessage(ws, msg) {
@@ -496,7 +532,8 @@ app.get('/api/ui-config', (_req, res) =>
     webrtc_constraints: config.webrtc_constraints || null,
     webrtc_max_bitrate_kbps: config.webrtc_max_bitrate_kbps || null,
     webrtc_min_bitrate_kbps: config.webrtc_min_bitrate_kbps || null,
-    webrtc_codec: config.webrtc_codec || null
+    webrtc_codec: config.webrtc_codec || null,
+    webrtc_monitor_quality: config.webrtc_monitor_quality || null
   })
 );
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));

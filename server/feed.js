@@ -13,10 +13,14 @@
  */
 
 class FeedHub {
-  constructor({ log, readyTimeoutMs = 4000 }) {
+  constructor({ log, readyTimeoutMs = 4000, monitorQuality = null }) {
     this.log = log;
     this.readyTimeoutMs = readyTimeoutMs;
-    this.clients = new Set(); // feed receiver sockets
+    // A preview must not cost the mini PC a second full-quality encode.
+    this.monitorQuality = monitorQuality || { max_kbps: 600, scale: 2 };
+    this.clients = new Set(); // clean feed receiver (one at a time)
+    this.monitors = new Map(); // preview receivers (dashboard), ws -> peer id
+    this.nextMonitorId = 1;
     this.target = null; // station id currently requested on the feed
     this.ready = false; // the feed page reported the stream is playing
     this.audioBlocked = false; // the browser refused to play with sound
@@ -43,6 +47,50 @@ class FeedHub {
   }
 
   /**
+   * Preview receivers (the dashboard). They get their own peer connection at
+   * reduced quality and are best effort: they never gate the open sequence,
+   * never set `ready`, and never raise a driver error.
+   */
+  addMonitor(ws) {
+    const id = 'mon-' + this.nextMonitorId++;
+    this.monitors.set(ws, id);
+    this.send(ws, { type: 'feed_target', station: this.target });
+    if (this.target) this.startPeer(this.target, id, this.monitorQuality);
+    this.onChange();
+    return id;
+  }
+
+  removeMonitor(ws) {
+    const id = this.monitors.get(ws);
+    if (!id) return;
+    this.monitors.delete(ws);
+    if (this.target) {
+      const station = this.stationSocket(this.target);
+      if (station) this.send(station, { type: 'feed_stop', peer: id });
+    }
+    this.onChange();
+  }
+
+  monitorSocket(id) {
+    for (const [ws, peer] of this.monitors) if (peer === id) return ws;
+    return null;
+  }
+
+  startPeer(stationId, peer, quality) {
+    const station = this.stationSocket(stationId);
+    if (!station) return false;
+    this.send(station, { type: 'feed_start', peer, quality: quality || null });
+    return true;
+  }
+
+  stopAllPeers(stationId) {
+    const station = this.stationSocket(stationId);
+    if (!station) return;
+    this.send(station, { type: 'feed_stop', peer: 'feed' });
+    for (const id of this.monitors.values()) this.send(station, { type: 'feed_stop', peer: id });
+  }
+
+  /**
    * Re-negotiates the current target. The offer is created on the feed_start
    * edge, so anything that breaks the pair - a reloaded feed page, a station
    * that reconnects, a camera that only becomes available after the grant -
@@ -55,7 +103,7 @@ class FeedHub {
     this.ready = false;
     this.log.event('feed_restart', { station: this.target, reason });
     this.broadcastToFeed({ type: 'feed_target', station: this.target });
-    this.send(ws, { type: 'feed_start' });
+    this.send(ws, { type: 'feed_start', peer: 'feed' });
     this.onChange();
     return true;
   }
@@ -77,9 +125,14 @@ class FeedHub {
     for (const ws of this.clients) this.send(ws, payload);
   }
 
+  broadcastToMonitors(payload) {
+    for (const ws of this.monitors.keys()) this.send(ws, payload);
+  }
+
   status() {
     return {
       receivers: this.clients.size,
+      monitors: this.monitors.size,
       target: this.target,
       ready: this.ready,
       audio_blocked: this.audioBlocked
@@ -105,12 +158,10 @@ class FeedHub {
     this.target = stationId;
     this.ready = false;
 
-    if (previous && previous !== stationId) {
-      const prevWs = this.stationSocket(previous);
-      if (prevWs) this.send(prevWs, { type: 'feed_stop' });
-    }
+    if (previous && previous !== stationId) this.stopAllPeers(previous);
 
     this.broadcastToFeed({ type: 'feed_target', station: stationId });
+    this.broadcastToMonitors({ type: 'feed_target', station: stationId });
     this.onChange();
 
     if (stationId === null) {
@@ -118,15 +169,22 @@ class FeedHub {
       return Promise.resolve();
     }
 
+    const stationWs = this.stationSocket(stationId);
+
+    // Previews are independent of the clean feed: the dashboard must show what
+    // is on air even while /feed/ is not open yet, which is exactly the case
+    // during setup. Start them before anything can reject.
+    if (stationWs) {
+      for (const id of this.monitors.values()) this.startPeer(stationId, id, this.monitorQuality);
+    }
+
     if (this.clients.size === 0) {
       return Promise.reject(new Error('nessun ricevitore feed collegato (/feed/)'));
     }
-
-    const stationWs = this.stationSocket(stationId);
     if (!stationWs) {
       return Promise.reject(new Error(`poltrona ${stationId} non collegata: nessun video da inviare`));
     }
-    this.send(stationWs, { type: 'feed_start' });
+    this.send(stationWs, { type: 'feed_start', peer: 'feed' });
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -166,19 +224,25 @@ class FeedHub {
     this.log.event('feed_error', { station: stationId, message });
   }
 
-  /** Station -> feed signalling. Only the station on air may reach the feed. */
-  relayFromStation(stationId, data) {
+  /** Station -> receiver signalling. Only the station on air may reach them. */
+  relayFromStation(stationId, data, peer) {
     if (stationId !== this.target) return false;
-    this.broadcastToFeed({ type: 'rtc_signal', station: stationId, data });
+    if (!peer || peer === 'feed') {
+      this.broadcastToFeed({ type: 'rtc_signal', station: stationId, data });
+      return true;
+    }
+    const ws = this.monitorSocket(peer);
+    if (!ws) return false;
+    this.send(ws, { type: 'rtc_signal', station: stationId, data });
     return true;
   }
 
-  /** Feed -> station signalling. */
-  relayToStation(stationId, data) {
+  /** Receiver -> station signalling. `peer` identifies which connection. */
+  relayToStation(stationId, data, peer) {
     if (stationId !== this.target) return false;
     const ws = this.stationSocket(stationId);
     if (!ws) return false;
-    this.send(ws, { type: 'rtc_signal', data });
+    this.send(ws, { type: 'rtc_signal', peer: peer || 'feed', data });
     return true;
   }
 }

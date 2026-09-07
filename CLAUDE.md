@@ -123,7 +123,9 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 
 ## 7. Protocollo WebSocket
 
-Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed", "station": "post-01", "token": "..." }`. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso con codice `4000`): un kiosk ricaricato non resta bloccato. Il client scalzato **non deve riconnettersi** — altrimenti le due finestre si scalzano a vicenda all'infinito — ma mostrare la view "POLTRONA APERTA ALTROVE" finché non viene ricaricato.
+Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed"|"monitor", "station": "post-01", "token": "..." }`.
+
+Il ruolo `feed` è il **feed pulito verso il mixer**: uno solo alla volta (vince l'ultimo, il precedente viene chiuso con codice `4000`). Il ruolo `monitor` è un'**anteprima** (la dashboard): quante se ne vuole, ognuna con la propria connessione WebRTC a qualità ridotta. Un'anteprima non conferma mai l'andata in onda, non genera errori driver e non scalza il feed pulito. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso con codice `4000`): un kiosk ricaricato non resta bloccato. Il client scalzato **non deve riconnettersi** — altrimenti le due finestre si scalzano a vicenda all'infinito — ma mostrare la view "POLTRONA APERTA ALTROVE" finché non viene ricaricato.
 
 ```
 station → server : { "type": "request_floor" }
@@ -145,11 +147,12 @@ Percorso video WebRTC:
 
 ```
 station → server : { "type": "media_status", "ok": true|false, "message": "..." }  // webcam/mic
-server → station : { "type": "feed_start" } | { "type": "feed_stop" }
+server → station : { "type": "feed_start", "peer": "feed"|"mon-1", "quality": { "max_kbps": 600, "scale": 2 } }
+server → station : { "type": "feed_stop", "peer": "feed"|"mon-1" }
 server → feed    : { "type": "feed_target", "station": "post-03"|null }
 feed   → server  : { "type": "feed_ready", "station": "post-03" }
 feed   → server  : { "type": "feed_error", "station": "post-03", "message": "..." }
-station ↔ server ↔ feed : { "type": "rtc_signal", "station": "post-03", "data": { sdp | candidate } }
+station ↔ server ↔ feed/monitor : { "type": "rtc_signal", "peer": "feed"|"mon-1", "station": "post-03", "data": { sdp | candidate } }
 ```
 
 Il server fa da solo relay del signalling, e **solo per la poltrona attualmente puntata dal feed**: una poltrona non in onda non può aprire un canale verso il feed.
@@ -165,7 +168,7 @@ Schema di `state_sync`:
   "manual_mode": false,
   "live": "post-03",
   "drivers": { "video": { "status": "ok" }, "lights": { "status": "error", "message": "..." } },
-  "feed": { "receivers": 1, "target": "post-03", "ready": true },
+  "feed": { "receivers": 1, "monitors": 1, "target": "post-03", "ready": true, "audio_blocked": false },
   "stations": [
     { "id": "post-01", "label": "Poltrona 1", "name": "Rossi", "state": "REQUESTED",
       "connected": true, "requested_at": 1709999990000, "live_since": null,
@@ -187,7 +190,7 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 
 **Feed pulito** (`/feed/`): pagina nera a riposo, mostra in fullscreen la poltrona autorizzata con il suo audio. Nessun testo, nessun overlay (con `?debug=1` una riga di stato per il collaudo). Va aperta in Chromium kiosk sulla seconda uscita HDMI del PC di regia, quella collegata al mixer.
 
-**Dashboard regia** (`/regia/`): colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
+**Dashboard regia** (`/regia/`): anteprima video della poltrona in onda (connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio), colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
 
 **Modalità manuale**: il server smette di comandare video e luci (coda, stati e display continuano a funzionare). Alla riattivazione il server **risincronizza subito** i driver con lo stato corrente.
 
