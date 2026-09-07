@@ -8,7 +8,14 @@ const noopLog = { event() {} };
 
 /** Minimal stand-in for a WebSocket that records what it was sent. */
 function fakeSocket() {
-  return { readyState: 1, OPEN: 1, sent: [], send(raw) { this.sent.push(JSON.parse(raw)); } };
+  return {
+    readyState: 1,
+    OPEN: 1,
+    sent: [],
+    closedWith: null,
+    send(raw) { this.sent.push(JSON.parse(raw)); },
+    close(code, reason) { this.closedWith = { code, reason }; }
+  };
 }
 
 function makeHub({ stations = {}, readyTimeoutMs = 100 } = {}) {
@@ -17,16 +24,69 @@ function makeHub({ stations = {}, readyTimeoutMs = 100 } = {}) {
   return hub;
 }
 
-test('a receiver that connects mid-show is told what to display', () => {
+test('a receiver that connects mid-show is told what to display AND restarts the station', () => {
   const station = fakeSocket();
   const hub = makeHub({ stations: { 'post-01': station } });
   const feed = fakeSocket();
   hub.addClient(feed);
   hub.setTarget('post-01').catch(() => {}); // this test only cares about the side effects
+  station.sent.length = 0;
 
   const late = fakeSocket();
   hub.addClient(late);
+
   assert.deepEqual(late.sent[0], { type: 'feed_target', station: 'post-01' });
+  // Without this the offer is never re-created and the feed stays black for good.
+  assert.deepEqual(station.sent.pop(), { type: 'feed_start' });
+});
+
+test('only one receiver at a time: the previous one is closed, not left fighting', () => {
+  const hub = makeHub({ stations: { 'post-01': fakeSocket() } });
+  const first = fakeSocket();
+  const second = fakeSocket();
+  hub.addClient(first);
+  hub.addClient(second);
+
+  assert.deepEqual(first.closedWith, { code: 4000, reason: 'replaced' });
+  assert.equal(hub.status().receivers, 1);
+});
+
+test('publishing restarts when the camera shows up after the grant', async () => {
+  const station = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station }, readyTimeoutMs: 60 });
+  hub.addClient(fakeSocket());
+  await assert.rejects(() => hub.setTarget('post-01'), /non ha confermato/);
+
+  station.sent.length = 0;
+  assert.equal(hub.restartPublishing('webcam disponibile'), true);
+  assert.deepEqual(station.sent.pop(), { type: 'feed_start' });
+  assert.equal(hub.status().ready, false);
+});
+
+test('restart does nothing without a target, a station or a receiver', () => {
+  const station = fakeSocket();
+  const hub = makeHub({ stations: { 'post-01': station } });
+  assert.equal(hub.restartPublishing('nessun target'), false);
+
+  hub.target = 'post-01';
+  assert.equal(hub.restartPublishing('nessun ricevitore'), false, 'no receiver: nothing to renegotiate');
+
+  hub.addClient(fakeSocket());
+  hub.target = 'post-02';
+  assert.equal(hub.restartPublishing('poltrona scollegata'), false, 'station not connected');
+});
+
+test('blocked feed audio is reported to the dashboard, never drawn on the feed', () => {
+  const hub = makeHub();
+  const feed = fakeSocket();
+  hub.addClient(feed);
+
+  assert.equal(hub.setAudioBlocked(true), true);
+  assert.equal(hub.status().audio_blocked, true);
+  assert.equal(hub.setAudioBlocked(true), false, 'no repeated broadcasts for the same state');
+
+  hub.removeClient(feed);
+  assert.equal(hub.status().audio_blocked, false, 'a gone receiver cannot still have blocked audio');
 });
 
 test('pointing the feed at a station starts it and resolves when the feed is playing', async () => {
@@ -124,7 +184,7 @@ test('the last receiver leaving clears the ready state', async () => {
   await pending;
 
   hub.removeClient(feed);
-  assert.deepEqual(hub.status(), { receivers: 0, target: 'post-01', ready: false });
+  assert.deepEqual(hub.status(), { receivers: 0, target: 'post-01', ready: false, audio_blocked: false });
 });
 
 test('a superseded switch rejects instead of leaving a promise pending forever', async () => {

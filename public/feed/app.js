@@ -5,7 +5,6 @@
 
   var debug = new URLSearchParams(location.search).has('debug');
   var video = document.getElementById('feed');
-  var unlock = document.getElementById('unlock');
   var status = document.getElementById('status');
   status.hidden = !debug;
 
@@ -18,6 +17,10 @@
     onMessage: function (msg) {
       receiver.handle(msg);
     },
+    onReplaced: function () {
+      receiver.setTarget(null);
+      setStatus('sostituito da un altro ricevitore feed');
+    },
     onLink: function (up) {
       if (!up) {
         // The server is gone: black is the only safe thing to send to the mixer.
@@ -29,20 +32,22 @@
 
   var receiver = new FeedReceiver(bridge, video, {
     onState: setStatus,
-    onBlocked: function () {
-      unlock.hidden = false;
+    onAudioBlocked: function (blocked) {
+      // Reported to the control room, never drawn on the feed itself.
+      bridge.send({ type: 'feed_audio', blocked: blocked });
+      if (blocked) setStatus('audio bloccato dal browser: clicca sulla pagina');
     }
   });
 
   // The server waits for this before telling the station it is on air.
   video.addEventListener('playing', function () {
-    unlock.hidden = true;
     receiver.reportReady();
   });
 
-  unlock.addEventListener('click', function () {
-    unlock.hidden = true;
-    video.play();
+  ['click', 'keydown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      receiver.unmute();
+    });
   });
 
   bridge.start();

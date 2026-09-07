@@ -14,6 +14,7 @@
     bannerOffline: document.getElementById('banner-offline'),
     bannerDrivers: document.getElementById('banner-drivers'),
     bannerFeed: document.getElementById('banner-feed'),
+    bannerAudio: document.getElementById('banner-audio'),
     bannerManual: document.getElementById('banner-manual'),
     manual: document.getElementById('manual-mode'),
     queue: document.getElementById('queue'),
@@ -137,6 +138,7 @@
 
     // Without a feed receiver nothing can reach the mixer, whatever the queue says.
     el.bannerFeed.hidden = !snap.feed || snap.feed.receivers > 0;
+    el.bannerAudio.hidden = !snap.feed || !snap.feed.audio_blocked;
 
     renderQueue(snap);
     renderLive();

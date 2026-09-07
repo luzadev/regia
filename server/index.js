@@ -313,6 +313,8 @@ function handleHello(ws, msg) {
     clients.add(ws);
     studio.setConnected(st.id, true);
     log.event('station_online', { station: st.id });
+    // A kiosk reloaded during its own intervention must resume publishing.
+    if (feedHub.target === st.id) feedHub.restartPublishing('poltrona riconnessa');
     broadcast();
     return;
   }
@@ -369,6 +371,11 @@ function handleStationMessage(ws, msg) {
       const res = studio.setMedia(id, msg.ok, msg.message);
       if (res.ok) {
         log.event('media_status', { station: id, ok: !!msg.ok, message: msg.message || null });
+        // A camera that only becomes available after the grant must still reach
+        // the feed instead of leaving it black.
+        if (msg.ok && feedHub.target === id && !feedHub.ready) {
+          feedHub.restartPublishing('webcam disponibile');
+        }
         broadcast();
       }
       return;
@@ -384,6 +391,8 @@ function handleFeedMessage(ws, msg) {
       return feedHub.markReady(msg.station);
     case 'feed_error':
       return feedHub.markError(msg.station, msg.message);
+    case 'feed_audio':
+      return feedHub.setAudioBlocked(msg.blocked) && undefined;
     case 'rtc_signal': {
       if (!feedHub.relayToStation(msg.station, msg.data)) {
         return sendError(ws, 'not_on_feed', 'Poltrona non collegata al feed');
@@ -484,7 +493,8 @@ app.get('/api/ui-config', (_req, res) =>
     countdown_presets_s: config.countdown_presets_s || [30, 60, 120, 300],
     heartbeat_interval_ms: HEARTBEAT_MS,
     offline_timeout_ms: OFFLINE_MS,
-    webrtc_constraints: config.webrtc_constraints || null
+    webrtc_constraints: config.webrtc_constraints || null,
+    webrtc_max_bitrate_kbps: config.webrtc_max_bitrate_kbps || null
   })
 );
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));

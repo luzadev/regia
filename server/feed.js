@@ -19,21 +19,53 @@ class FeedHub {
     this.clients = new Set(); // feed receiver sockets
     this.target = null; // station id currently requested on the feed
     this.ready = false; // the feed page reported the stream is playing
+    this.audioBlocked = false; // the browser refused to play with sound
     this.pending = null; // { station, resolve, reject, timer }
     this.stationSocket = () => null; // injected by index.js
     this.onChange = () => {};
   }
 
   addClient(ws) {
+    // One receiver at a time: there is a single clean output, and a station can
+    // only hold one peer connection. Last one wins, like stations do.
+    for (const other of [...this.clients]) {
+      if (other !== ws) {
+        this.clients.delete(other);
+        other.close(4000, 'replaced');
+      }
+    }
     this.clients.add(ws);
-    // A receiver that connects mid-show must immediately learn what to show.
+    // A receiver that connects mid-show must learn what to show AND get the
+    // station publishing again, otherwise the feed stays black for good.
     this.send(ws, { type: 'feed_target', station: this.target });
+    if (this.target) this.restartPublishing('nuovo ricevitore feed');
     this.onChange();
+  }
+
+  /**
+   * Re-negotiates the current target. The offer is created on the feed_start
+   * edge, so anything that breaks the pair - a reloaded feed page, a station
+   * that reconnects, a camera that only becomes available after the grant -
+   * needs this to recover instead of leaving a black feed.
+   */
+  restartPublishing(reason) {
+    if (!this.target || this.clients.size === 0) return false;
+    const ws = this.stationSocket(this.target);
+    if (!ws) return false;
+    this.ready = false;
+    this.log.event('feed_restart', { station: this.target, reason });
+    this.broadcastToFeed({ type: 'feed_target', station: this.target });
+    this.send(ws, { type: 'feed_start' });
+    this.onChange();
+    return true;
   }
 
   removeClient(ws) {
     if (!this.clients.delete(ws)) return;
-    if (this.clients.size === 0) this.ready = false;
+    if (this.clients.size === 0) {
+      this.ready = false;
+      this.audioBlocked = false;
+    }
     this.onChange();
   }
 
@@ -46,7 +78,20 @@ class FeedHub {
   }
 
   status() {
-    return { receivers: this.clients.size, target: this.target, ready: this.ready };
+    return {
+      receivers: this.clients.size,
+      target: this.target,
+      ready: this.ready,
+      audio_blocked: this.audioBlocked
+    };
+  }
+
+  setAudioBlocked(blocked) {
+    if (this.audioBlocked === !!blocked) return false;
+    this.audioBlocked = !!blocked;
+    this.log.event('feed_audio', { blocked: this.audioBlocked });
+    this.onChange();
+    return true;
   }
 
   /**

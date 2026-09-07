@@ -12,6 +12,7 @@
   function StationPublisher(bridge, options) {
     this.bridge = bridge;
     this.constraints = options.constraints;
+    this.maxBitrateKbps = options.maxBitrateKbps || 4000;
     this.onStatus = options.onStatus || function () {};
     this.stream = null;
     this.pc = null;
@@ -78,6 +79,24 @@
       pc.addTrack(track, self.stream);
     });
 
+    // WebRTC starts low and ramps up over a few seconds. On air that is a
+    // visibly soft first shot, so ask for full resolution and a broadcast-ish
+    // bitrate straight away, and keep resolution over frame rate when the
+    // network tightens.
+    var videoSender = pc.getSenders().filter(function (s) {
+      return s.track && s.track.kind === 'video';
+    })[0];
+    if (videoSender && videoSender.getParameters) {
+      try {
+        var params = videoSender.getParameters();
+        params.degradationPreference = 'maintain-resolution';
+        params.encodings = [{ maxBitrate: (self.maxBitrateKbps || 4000) * 1000, scaleResolutionDownBy: 1 }];
+        videoSender.setParameters(params);
+      } catch (e) {
+        /* older browsers: the defaults still work, just softer at the start */
+      }
+    }
+
     pc.onicecandidate = function (ev) {
       if (ev.candidate) self.bridge.send({ type: 'rtc_signal', data: { candidate: ev.candidate } });
     };
@@ -114,7 +133,8 @@
     this.bridge = bridge;
     this.video = videoEl;
     this.onState = options.onState || function () {};
-    this.onBlocked = options.onBlocked || function () {};
+    this.onAudioBlocked = options.onAudioBlocked || function () {};
+    this.audioBlocked = false;
     this.target = null;
     this.pc = null;
     this.queuedCandidates = [];
@@ -160,13 +180,41 @@
 
   FeedReceiver.prototype.play = function () {
     var self = this;
+    this.video.muted = false;
     var attempt = this.video.play();
     if (!attempt || !attempt.catch) return;
     attempt.catch(function () {
       // Chromium blocks autoplay with sound without a user gesture or the
-      // --autoplay-policy=no-user-gesture-required kiosk flag.
-      self.onBlocked();
+      // --autoplay-policy=no-user-gesture-required kiosk flag. Going on air
+      // silent beats not going on air, and NOTHING may be drawn on the clean
+      // feed to say so - the mixer would put that text on the show. The
+      // dashboard raises the alarm instead.
+      self.video.muted = true;
+      self.video.play().catch(function () {});
+      self.audioBlocked = true;
+      self.onAudioBlocked(true);
     });
+  };
+
+  /** Any interaction with the feed page is enough to release the audio. */
+  FeedReceiver.prototype.unmute = function () {
+    var self = this;
+    if (!this.audioBlocked) return;
+    this.video.muted = false;
+    var attempt = this.video.play();
+    if (attempt && attempt.then) {
+      attempt
+        .then(function () {
+          self.audioBlocked = false;
+          self.onAudioBlocked(false);
+        })
+        .catch(function () {
+          self.video.muted = true;
+        });
+    } else {
+      this.audioBlocked = false;
+      this.onAudioBlocked(false);
+    }
   };
 
   FeedReceiver.prototype.onSignal = function (station, data) {

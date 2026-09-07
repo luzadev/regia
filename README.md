@@ -40,6 +40,7 @@ Il server stampa gli indirizzi utili all'avvio:
 | `video_driver` | `webrtc` (predefinito), `ndi` o `mock` |
 | `webrtc_ready_timeout_ms` | quanto attendere la conferma della pagina `/feed/` (5 s) |
 | `webrtc_constraints` | risoluzione, frame rate e trattamento audio richiesti alla webcam |
+| `webrtc_max_bitrate_kbps` | tetto di bitrate video (4000 = 4 Mbit/s), per partire subito alla risoluzione piena |
 | `lights_driver` / `relay_driver` | `mock` per ora; `wled`, `shelly` da M3 |
 | `driver_timeout_ms` | timeout di ogni chiamata ai driver (default 1500 ms) |
 | `heartbeat_interval_ms` | cadenza dell'heartbeat verso i client (2 s) |

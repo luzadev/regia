@@ -55,6 +55,7 @@
   ],
   "video_driver": "webrtc",
   "webrtc_ready_timeout_ms": 5000,
+  "webrtc_max_bitrate_kbps": 4000,
   "webrtc_constraints": {
     "video": {
       "width": 1280,
