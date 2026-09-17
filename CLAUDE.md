@@ -139,6 +139,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 - **`tls`**: i browser espongono webcam, microfono e `RTCPeerConnection` **solo in contesto sicuro** (`https://` o `http://localhost`), quindi con le poltrone su altre macchine l'HTTPS è necessario, non opzionale. `npm run cert` genera un certificato auto-firmato per `localhost`, il nome macchina e tutti gli IP di rete. `tls: null` = HTTP, e le poltrone hanno la webcam solo su localhost. Un certificato mancante o illeggibile non ferma il server: riparte in HTTP con un avviso.
 - `control_token: null` disattiva l'autenticazione (LAN chiusa). Se valorizzato, il ruolo `control` deve presentarlo nell'`hello` e negli endpoint HTTP (header `X-Control-Token`).
 - **Inquadratura per poltrona**: `stations[].framing` = `{ "pitch", "yaw", "zoom" }`, salvata dalla regia e rimessa automaticamente quando la telecamera di quella poltrona torna online, se la poltrona non è in onda.
+- **Tracking per poltrona**: `stations[].tracking` = `"normal"` (segue l'ospite), `"upper"` (mezzo busto), `"closeup"` (primo piano); assente = inquadratura fissa, che resta il default. Si sceglie dalla regia in anteprima, **mai in onda**. Con il tracking attivo i comandi manuali e il salvataggio dell'inquadratura sono rifiutati (`tracking_on`): l'SDK spegnerebbe il tracking al primo movimento manuale. Quando la telecamera torna online riceve il suo tracking invece dell'inquadratura fissa.
 - **Poltrone dalla dashboard**: `stations` si può modificare anche dalla regia (aggiungi/rimuovi a caldo, senza riavvio). Il server riscrive `config.json` in modo atomico tenendo una copia in `config.json.bak`, quindi il file resta l'unica fonte di verità. Una poltrona **in onda non è rimovibile**: prima si chiude l'intervento.
 - **Nomi ospite**: si impostano dalla dashboard a inizio puntata e vivono in memoria, ma vengono salvati in `names_path` e ricaricati al boot, così un riavvio a metà puntata non li perde. Sono l'unico dato persistente oltre al log.
 
@@ -170,6 +171,7 @@ server → mittente: { "type": "settings", "settings": { ... } }
 control → server : { "type": "camera_nudge", "station": "post-03", "dpitch": 2, "dyaw": -3 }   // max ±30°
 control → server : { "type": "camera_zoom", "station": "post-03", "dzoom": 0.2 }             // oppure "zoom": 1.5 (1-4)
 control → server : { "type": "camera_goto", "station": "post-03", "pitch": -19, "yaw": 12, "zoom": 1 }
+control → server : { "type": "camera_tracking", "station": "post-03", "mode": "off"|"normal"|"upper"|"closeup" }
 control → server : { "type": "camera_save_framing", "station": "post-03" }
 control → server : { "type": "camera_recall_framing", "station": "post-03" }
 camera  → server : { "type": "camera_status", "ok": true, "info": { "model", "sn", "firmware" }, "state": { "pitch", "yaw", "zoom", "ai_mode", "asleep" }, "error": null }
@@ -215,7 +217,8 @@ Schema di `state_sync`:
       "deadline": null, "countdown_total_s": null, "denied_until": null,
       "media": { "ok": true, "message": null, "warning": null, "devices": { "video": "OBSBOT Tiny 2 Lite StreamCamera", "audio": "OBSBOT Tiny 2 Lite Microphone" } },
       "camera": { "connected": true, "ok": true, "info": { "model": "Tiny 2 Lite" }, "state": { "pitch": -18.9, "yaw": 12.7, "zoom": 1, "ai_mode": 0, "asleep": false }, "error": null },
-      "framing": { "pitch": -18.9, "yaw": 12.7, "zoom": 1 } }
+      "framing": { "pitch": -18.9, "yaw": 12.7, "zoom": 1 },
+      "tracking": "off" }
   ]
 }
 ```
@@ -234,7 +237,7 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 
 **Feed pulito** (`/feed/`): pagina nera a riposo, mostra in fullscreen la poltrona autorizzata con il suo audio. Nessun testo, nessun overlay (con `?debug=1` una riga di stato per il collaudo). Va aperta in Chromium kiosk sulla seconda uscita HDMI del PC di regia, quella collegata al mixer.
 
-**Dashboard regia** (`/regia/`): riquadro video sempre visibile — segue la poltrona in onda (etichetta rossa **IN ONDA**) oppure, con «Guarda» su una riga della coda o su una scheda, mostra quella poltrona **prima** di autorizzarla (etichetta ambra **ANTEPRIMA · NON IN ONDA** e pulsante «Torna all'onda»); connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio, che serve proprio a controllare il microfono di chi aspetta; colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", comandi telecamera sotto il riquadro quando si guarda una poltrona in anteprima (frecce, zoom, «Salva inquadratura», ⟲ richiama) e badge **ptz** sulle schede con un agente collegato, campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
+**Dashboard regia** (`/regia/`): riquadro video sempre visibile — segue la poltrona in onda (etichetta rossa **IN ONDA**) oppure, con «Guarda» su una riga della coda o su una scheda, mostra quella poltrona **prima** di autorizzarla (etichetta ambra **ANTEPRIMA · NON IN ONDA** e pulsante «Torna all'onda»); connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio, che serve proprio a controllare il microfono di chi aspetta; colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", comandi telecamera sotto il riquadro quando si guarda una poltrona in anteprima (modo di inquadratura Fissa / Segue l'ospite / Mezzo busto / Primo piano, frecce, zoom, «Salva inquadratura», ⟲ richiama) e badge **ptz** sulle schede con un agente collegato, campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
 
 **Modalità manuale**: il server smette di comandare video e luci (coda, stati e display continuano a funzionare). Alla riattivazione il server **risincronizza subito** i driver con lo stato corrente.
 

@@ -150,3 +150,63 @@ test('a disconnected agent is shown offline, and a removed station drops its age
   hub.forget('post-02');
   assert.equal(other.closedWith.code, 4004);
 });
+
+// --- tracking -----------------------------------------------------------------
+
+test('choosing a tracking mode is saved and sent to the camera', () => {
+  const { studio, hub, saves } = setup();
+  const agent = fakeSocket();
+  hub.addAgent(agent, 'post-01');
+
+  assert.deepEqual(hub.setTracking('post-01', 'upper'), { ok: true });
+  assert.equal(studio.get('post-01').config.tracking, 'upper');
+  assert.equal(saves(), 1);
+  const cmd = agent.sent.pop();
+  assert.deepEqual([cmd.cmd, cmd.mode], ['tracking', 'upper']);
+
+  hub.setTracking('post-01', 'off');
+  assert.equal(studio.get('post-01').config.tracking, undefined, 'fixed is the default: nothing left in config');
+  assert.equal(studio.snapshot().stations.find((s) => s.id === 'post-01').tracking, 'off');
+});
+
+test('the tracking mode is never changed on air', () => {
+  const { studio, hub } = setup();
+  const agent = fakeSocket();
+  hub.addAgent(agent, 'post-01');
+  studio.grant('post-01');
+  assert.equal(hub.setTracking('post-01', 'normal').code, 'is_live');
+  assert.deepEqual(agent.sent, []);
+});
+
+test('unknown modes are refused', () => {
+  const { hub } = setup();
+  assert.equal(hub.setTracking('post-01', 'group').code, 'bad_tracking');
+  assert.equal(hub.setTracking('post-99', 'off').code, 'unknown_station');
+});
+
+test('while the camera follows the guest, manual moves and saving are refused', () => {
+  const { hub } = setup();
+  const agent = fakeSocket();
+  hub.addAgent(agent, 'post-01');
+  hub.update('post-01', okStatus());
+  hub.setTracking('post-01', 'normal');
+  agent.sent.length = 0;
+
+  for (const order of [{ cmd: 'nudge', dpitch: 2 }, { cmd: 'zoom', dzoom: 0.2 }, { cmd: 'goto', pitch: 0, yaw: 0 }]) {
+    assert.equal(hub.command('post-01', order).code, 'tracking_on', order.cmd);
+  }
+  assert.equal(hub.saveFraming('post-01').code, 'tracking_on');
+  assert.deepEqual(agent.sent, [], 'a manual move would silently switch tracking off in the camera');
+});
+
+test('the mode can be chosen with no agent connected, and applies when the camera comes online', () => {
+  const { hub } = setup({ framing: { pitch: -10, yaw: 5, zoom: 1.5 } });
+  assert.deepEqual(hub.setTracking('post-01', 'closeup'), { ok: true });
+
+  const agent = fakeSocket();
+  hub.addAgent(agent, 'post-01');
+  hub.update('post-01', okStatus());
+  const cmds = agent.sent.map((m) => m.cmd);
+  assert.deepEqual(cmds, ['tracking'], 'a tracking station gets its mode back, not the fixed framing');
+  assert.equal(agent.sent[0].mode, 'closeup');
+});

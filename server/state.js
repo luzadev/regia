@@ -309,7 +309,8 @@ class Studio {
         denied_until: s.denied_until,
         media: s.media,
         camera: s.camera,
-        framing: s.config.framing || null
+        framing: s.config.framing || null,
+        tracking: s.config.tracking || 'off'
       }))
     };
   }

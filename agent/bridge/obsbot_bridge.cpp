@@ -149,6 +149,14 @@ OB_EXPORT int ob_ai_off(void) {
   return g_dev->cameraSetAiModeU(Device::AiWorkModeNone) == 0 ? 0 : -1;
 }
 
+/// Sets the AI tracking mode (AiWorkModeType) and, for single-person tracking,
+/// its sub-mode (AiSubModeType: 0 normal, 1 upper body, 2 close-up).
+OB_EXPORT int ob_set_ai_mode(int mode, int sub_mode) {
+  std::lock_guard<std::mutex> lock(g_mu);
+  if (!acquire()) return -2;
+  return g_dev->cameraSetAiModeU((Device::AiWorkModeType)mode, sub_mode) == 0 ? 0 : -1;
+}
+
 /// Moves the gimbal to absolute motor angles, in degrees.
 OB_EXPORT int ob_set_angle(float pitch, float yaw) {
   std::lock_guard<std::mutex> lock(g_mu);

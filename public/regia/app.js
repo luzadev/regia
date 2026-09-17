@@ -83,6 +83,11 @@
       bridge.send({ type: 'camera_zoom', station: previewing, dzoom: Number(b.dataset.dz) });
     });
   });
+  document.querySelectorAll('#camera-bar [data-track]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (previewing) bridge.send({ type: 'camera_tracking', station: previewing, mode: b.dataset.track });
+    });
+  });
   document.getElementById('cam-save').addEventListener('click', function () {
     if (previewing) bridge.send({ type: 'camera_save_framing', station: previewing });
   });
@@ -274,12 +279,23 @@
     } else {
       parts.push('telecamera non disponibile' + (cam.error ? ': ' + escapeHtml(cam.error) : ''));
     }
-    parts.push(station.framing ? 'inquadratura salvata' : 'nessuna inquadratura salvata');
+    var tracking = station.tracking || 'off';
+    var labels = { normal: 'segue l\'ospite', upper: 'segue l\'ospite a mezzo busto', closeup: 'segue l\'ospite in primo piano' };
+    if (tracking !== 'off') {
+      // Manual moves would switch tracking off in the camera: say why they are unavailable.
+      parts.push('<b>La telecamera ' + labels[tracking] + '</b>: scegli «Fissa» per muoverla a mano');
+    } else {
+      parts.push(station.framing ? 'inquadratura salvata' : 'nessuna inquadratura salvata');
+    }
     info.innerHTML = parts.join('<br>');
 
     var usable = cam.ok && !!cam.state;
-    bar.querySelectorAll('button').forEach(function (b) {
-      b.disabled = !usable || (b.id === 'cam-recall' && !station.framing);
+    bar.querySelectorAll('[data-track]').forEach(function (b) {
+      b.setAttribute('aria-checked', String(b.dataset.track === tracking));
+      b.disabled = !usable;
+    });
+    bar.querySelectorAll('.cam-pad button, .cam-zoom button, #cam-save').forEach(function (b) {
+      b.disabled = !usable || tracking !== 'off' || (b.id === 'cam-recall' && !station.framing);
     });
   }
 
@@ -420,7 +436,8 @@
       card.ptz.className = 'badge ' + (camera.ok ? 'ptz-ok' : 'ptz-ko');
       card.ptz.textContent = camera.ok ? 'ptz' : 'ptz ko';
       card.ptz.title = camera.ok
-        ? (camera.info ? camera.info.model : 'telecamera comandabile') + (s.framing ? ' · inquadratura salvata' : '')
+        ? (camera.info ? camera.info.model : 'telecamera comandabile') +
+          (s.tracking && s.tracking !== 'off' ? ' · segue l\'ospite' : s.framing ? ' · inquadratura salvata' : '')
         : camera.error || 'agente collegato, telecamera non disponibile';
 
       var media = s.media || {};

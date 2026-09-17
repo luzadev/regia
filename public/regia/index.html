@@ -51,6 +51,12 @@
     </div>
     <!-- Camera controls: only while previewing a station that is NOT on air. -->
     <div id="camera-bar" class="camera-bar" hidden>
+      <div class="cam-tracking" role="radiogroup" aria-label="Inquadratura">
+        <button type="button" data-track="off" role="radio" title="Posizione fissa, comandata dalla regia">Fissa</button>
+        <button type="button" data-track="normal" role="radio" title="La telecamera segue l'ospite">Segue l'ospite</button>
+        <button type="button" data-track="upper" role="radio" title="Segue l'ospite a mezzo busto">Mezzo busto</button>
+        <button type="button" data-track="closeup" role="radio" title="Segue l'ospite in primo piano">Primo piano</button>
+      </div>
       <div class="cam-pad" aria-label="Muovi la telecamera">
         <span></span><button type="button" data-dp="2" data-dy="0" title="Su">▲</button><span></span>
         <button type="button" data-dp="0" data-dy="3" title="Sinistra">◀</button>

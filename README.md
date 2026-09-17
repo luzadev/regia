@@ -235,7 +235,25 @@ non arriva:
 - **una poltrona in onda non si muove mai**: i comandi compaiono solo in anteprima, e il server li
   rifiuta comunque se la poltrona è in onda.
 
-L'agente spegne anche tracking AI e gesti, e tiene sveglia la telecamera.
+**Inquadratura fissa o che segue l'ospite.** Nella stessa barra si sceglie, poltrona per
+poltrona:
+
+| Modo | Cosa fa |
+| --- | --- |
+| **Fissa** (default) | la telecamera sta dove la metti; frecce, zoom e inquadratura salvata attivi |
+| **Segue l'ospite** | tracking della persona dell'SDK OBSBOT |
+| **Mezzo busto** | segue l'ospite inquadrandolo a mezzo busto |
+| **Primo piano** | segue l'ospite in primo piano |
+
+La scelta viene salvata e rimessa quando la telecamera riparte. **Non si cambia in onda**, e
+mentre il tracking è attivo frecce, zoom e «Salva inquadratura» sono disattivati: il primo
+movimento manuale spegnerebbe il tracking nella telecamera, e i due comandi si contraddirebbero.
+
+Da sapere prima di usarlo in diretta: con il tracking l'inquadratura si muove da sola quando
+l'ospite si muove. Per un ospite seduto la scelta prudente resta «Fissa».
+
+L'agente spegne comunque tracking e gesti all'avvio, tiene sveglia la telecamera, e poi applica
+il modo scelto dalla regia.
 
 ### Diagnostica telecamera
 

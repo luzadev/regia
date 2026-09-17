@@ -12,7 +12,12 @@
       "label": "Poltrona 1",
       "ndi_source": "POLTRONA-1",
       "wled_segment": 0,
-      "relay_url": "http://192.168.10.41/relay/0"
+      "relay_url": "http://192.168.10.41/relay/0",
+      "framing": {
+        "pitch": -20.2,
+        "yaw": 7.2,
+        "zoom": 1
+      }
     },
     {
       "id": "post-02",

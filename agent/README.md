@@ -16,7 +16,10 @@ Appena trova la telecamera applica tre **regole di sicurezza**:
 | Gesti della mano spenti | un ospite che alza la mano per chiedere la parola non deve far zoomare la camera |
 | Telecamera tenuta sveglia | senza stream la Tiny si addormenta e **parcheggia il gimbal** (verificato: pitch 85°), poi al risveglio torna in posizione muovendosi |
 
-Poi esegue i comandi della regia: spostamento, zoom, richiamo dell'**inquadratura salvata**.
+Poi esegue i comandi della regia: spostamento, zoom, richiamo dell'**inquadratura salvata**, e
+**modo di inquadratura** (fissa, segue l'ospite, mezzo busto, primo piano). Il tracking spento
+all'avvio è solo il punto di partenza: se la regia ha scelto un modo per quella poltrona, il
+server lo rimanda appena la telecamera è pronta.
 Quando l'agente o la telecamera ripartono (riavvio, corrente staccata) il server rimette da solo
 l'inquadratura salvata di quella poltrona. **Una poltrona in onda non viene mai mossa**: né dai
 comandi della regia né dal ripristino automatico.
@@ -26,6 +29,9 @@ comandi della regia né dal ripristino automatico.
 - **macOS, Tiny 2 Lite firmware 6.2.8.1 (17/9/2026)**: spostamento e zoom, precisione ~0,1°,
   salvataggio e richiamo dell'inquadratura, rifiuto in onda, ripristino al riavvio, sveglia
   dalla sospensione, e comandi eseguiti **mentre Chrome trasmette** dalla stessa telecamera.
+- **Tracking (17/9/2026, macOS)**: segue l'ospite, primo piano e ritorno a fissa verificati sulla
+  telecamera (modo AI letto dalla camera); frecce rifiutate mentre segue. La variante (mezzo
+  busto o primo piano) è accettata dalla camera ma non si rilegge dallo stato.
 - **Windows: non ancora verificato.** Stesso SDK e stesse funzioni, ma va provato sul mini PC
   (vedi *Prova su Windows*).
 

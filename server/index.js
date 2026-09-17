@@ -740,6 +740,11 @@ function handleControlMessage(ws, msg) {
       if (!res.ok) sendError(ws, res.code, res.message);
       return;
     }
+    case 'camera_tracking': {
+      const res = cameraHub.setTracking(msg.station, msg.mode);
+      if (!res.ok) sendError(ws, res.code, res.message);
+      return;
+    }
     case 'camera_save_framing': {
       const res = cameraHub.saveFraming(msg.station);
       if (!res.ok) sendError(ws, res.code, res.message);

@@ -18,6 +18,7 @@ function fakeBridge(initial = {}) {
     info: () => ok({ model: 'Tiny 2 Lite', sn: 'TEST', firmware: '6.2.8.1' }),
     getState: () => (cam.present ? ok({ pitch: cam.pitch, yaw: cam.yaw, zoom: cam.zoom, ai_mode: cam.ai_mode, dev_status: cam.dev_status }) : missing()),
     aiOff: () => { calls.push('aiOff'); cam.ai_mode = 0; return ok(); },
+    setAiMode: (mode, sub) => { calls.push(`ai:${mode}:${sub}`); cam.ai_mode = mode; return ok(); },
     wake: () => { calls.push('wake'); cam.dev_status = 1; return ok(); },
     setGestures: (on) => { calls.push('gestures:' + on); return ok(); },
     setAngle: (pitch, yaw) => { calls.push(`angle:${pitch}:${yaw}`); cam.pitch = pitch; cam.yaw = yaw; return ok(); },
@@ -122,4 +123,26 @@ test('the periodic check wakes a camera that fell asleep', async () => {
   await agent.poll();
   agent.stop();
   assert.ok(bridge.calls.includes('wake'));
+});
+
+test('tracking modes map to the SDK single-person tracking and its variants', async () => {
+  const bridge = fakeBridge({ ai_mode: 0 });
+  const agent = makeAgent(bridge);
+  await agent.ensureCamera();
+  for (const [mode, call] of [['normal', 'ai:2:0'], ['upper', 'ai:2:1'], ['closeup', 'ai:2:2'], ['off', 'ai:0:0']]) {
+    bridge.calls.length = 0;
+    const status = await agent.handleCommand({ cmd: 'tracking', mode });
+    assert.ok(bridge.calls.includes(call), mode);
+    assert.equal(status.tracking, mode);
+  }
+});
+
+test('an unknown tracking mode changes nothing', async () => {
+  const bridge = fakeBridge({ ai_mode: 0 });
+  const agent = makeAgent(bridge);
+  await agent.ensureCamera();
+  bridge.calls.length = 0;
+  const status = await agent.handleCommand({ cmd: 'tracking', mode: 'whiteboard' });
+  assert.match(status.error, /sconosciuto/);
+  assert.ok(!bridge.calls.some((c) => c.startsWith('ai:')));
 });

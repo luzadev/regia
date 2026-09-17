@@ -15,6 +15,9 @@
  */
 
 const LIMITS = { pitch: [-90, 90], yaw: [-180, 180], zoom: [1, 4] };
+// How the camera frames its guest: fixed, or following them (SDK single-person
+// tracking and its two tighter variants).
+const TRACKING_MODES = ['off', 'normal', 'upper', 'closeup'];
 const STEP_LIMITS = { dpitch: 30, dyaw: 30, dzoom: 1 };
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
 
@@ -78,10 +81,18 @@ class CameraHub {
 
     if (camera.ok && camera.state && !this.recalled.has(stationId)) {
       this.recalled.add(stationId);
-      const framing = st.config.framing;
-      if (framing && st.state !== 'LIVE') {
-        this.log.event('camera_framing_restored', { station: stationId, framing });
-        this.send(this.sockets.get(stationId), { type: 'camera_cmd', id: this.nextId++, cmd: 'goto', ...framing });
+      // Nothing changes by itself on a station that is on air.
+      if (st.state !== 'LIVE') {
+        const tracking = st.config.tracking || 'off';
+        const ws = this.sockets.get(stationId);
+        if (tracking !== 'off') {
+          // A tracking station frames its guest itself: put that back, not a fixed position.
+          this.log.event('camera_tracking_restored', { station: stationId, tracking });
+          this.send(ws, { type: 'camera_cmd', id: this.nextId++, cmd: 'tracking', mode: tracking });
+        } else if (st.config.framing) {
+          this.log.event('camera_framing_restored', { station: stationId, framing: st.config.framing });
+          this.send(ws, { type: 'camera_cmd', id: this.nextId++, cmd: 'goto', ...st.config.framing });
+        }
       }
     }
     this.onChange();
@@ -98,6 +109,11 @@ class CameraHub {
     if (!ws) return { ok: false, code: 'camera_offline', message: `Nessun agente telecamera collegato per ${st.label}` };
     if (st.state === 'LIVE') {
       return { ok: false, code: 'is_live', message: 'Poltrona in onda: la telecamera non si muove. Regola in anteprima.' };
+    }
+    // The SDK drops tracking on the first manual move: refuse instead of
+    // silently undoing the mode the operator chose.
+    if ((st.config.tracking || 'off') !== 'off') {
+      return { ok: false, code: 'tracking_on', message: 'La telecamera segue l\'ospite: scegli «Fissa» per muoverla a mano.' };
     }
 
     const num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
@@ -126,10 +142,40 @@ class CameraHub {
     return { ok: true };
   }
 
+  /**
+   * Chooses how a station's camera frames its guest. Saved in config.json and
+   * put back whenever the camera comes online. Never changed on air: switching
+   * to tracking moves the picture.
+   */
+  setTracking(stationId, mode) {
+    const st = this.studio.get(stationId);
+    if (!st) return { ok: false, code: 'unknown_station', message: `Poltrona sconosciuta: ${stationId}` };
+    if (!TRACKING_MODES.includes(mode)) {
+      return { ok: false, code: 'bad_tracking', message: `Modo di inquadratura sconosciuto: ${mode}` };
+    }
+    if (st.state === 'LIVE') {
+      return { ok: false, code: 'is_live', message: 'Poltrona in onda: il modo di inquadratura non si cambia in onda.' };
+    }
+
+    if (mode === 'off') delete st.config.tracking;
+    else st.config.tracking = mode;
+    const saved = this.saveConfig();
+    this.log.event('camera_tracking', { station: stationId, tracking: mode, saved: saved.ok });
+
+    // With no agent connected the choice still counts: it applies when the camera comes online.
+    const ws = this.sockets.get(stationId);
+    if (ws) this.send(ws, { type: 'camera_cmd', id: this.nextId++, cmd: 'tracking', mode });
+    this.onChange();
+    return saved.ok ? { ok: true } : { ok: false, code: 'not_persisted', message: 'Modo applicato ma non salvato su config.json' };
+  }
+
   /** Stores where the camera is pointing now as this station's framing. */
   saveFraming(stationId) {
     const st = this.studio.get(stationId);
     if (!st) return { ok: false, code: 'unknown_station', message: `Poltrona sconosciuta: ${stationId}` };
+    if ((st.config.tracking || 'off') !== 'off') {
+      return { ok: false, code: 'tracking_on', message: 'La telecamera segue l\'ospite: una posizione fissa non si salva finché il tracking è attivo.' };
+    }
     const cam = st.camera;
     if (!cam || !cam.ok || !cam.state) {
       return { ok: false, code: 'camera_offline', message: 'Telecamera non disponibile: niente da salvare' };
@@ -153,4 +199,4 @@ class CameraHub {
   }
 }
 
-module.exports = { CameraHub, LIMITS };
+module.exports = { CameraHub, LIMITS, TRACKING_MODES };

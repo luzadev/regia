@@ -23,6 +23,14 @@
 const fs = require('fs');
 
 const LIMITS = { pitch: [-90, 90], yaw: [-180, 180], zoom: [1, 4] };
+
+// SDK AiWorkModeType / AiSubModeType for the Tiny 2 series.
+const TRACKING = {
+  off: { mode: 0, sub: 0 },
+  normal: { mode: 2, sub: 0 }, // single person
+  upper: { mode: 2, sub: 1 }, // upper body
+  closeup: { mode: 2, sub: 2 } // close-up
+};
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
 // toFixed avoids reporting -18.900000000000002 for -18.9.
 const round = (v, decimals) => Number(Number(v).toFixed(decimals));
@@ -182,6 +190,14 @@ function createAgent(options) {
         target = { pitch: cur.pitch + Number(msg.dpitch || 0), yaw: cur.yaw + Number(msg.dyaw || 0) };
       } else if (msg.cmd === 'zoom') {
         zoom = msg.zoom !== undefined ? Number(msg.zoom) : cur.zoom + Number(msg.dzoom || 0);
+      } else if (msg.cmd === 'tracking') {
+        const t = TRACKING[msg.mode];
+        if (!t) return report(cur, { ...reply, error: 'modo di tracking sconosciuto: ' + msg.mode });
+        if (cur.dev_status === 3) await wakeAndWait();
+        const r = await bridge.setAiMode(t.mode, t.sub);
+        await sleep(settleMs);
+        const s1 = await bridge.getState();
+        return report(s1.ok ? s1.data : null, { ...reply, tracking: msg.mode, ...(r.ok ? {} : { error: 'tracking: ' + r.error }) });
       } else if (msg.cmd !== 'state') {
         return report(cur, { ...reply, error: 'comando sconosciuto: ' + msg.cmd });
       }
@@ -297,4 +313,4 @@ if (require.main === module) {
   process.on('SIGTERM', quit);
 }
 
-module.exports = { createAgent, LIMITS };
+module.exports = { createAgent, LIMITS, TRACKING };

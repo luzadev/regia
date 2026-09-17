@@ -261,7 +261,7 @@ test('snapshot is the full documented state and hides internals', () => {
   assert.equal(snap.stations.length, 3);
   assert.deepEqual(Object.keys(snap.stations[0]).sort(), [
     'camera', 'connected', 'countdown_total_s', 'deadline', 'denied_until', 'framing', 'id',
-    'label', 'live_since', 'media', 'name', 'requested_at', 'state'
+    'label', 'live_since', 'media', 'name', 'requested_at', 'state', 'tracking'
   ]);
 });
 
