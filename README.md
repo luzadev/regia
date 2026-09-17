@@ -11,6 +11,9 @@ Il video e l'audio delle poltrone viaggiano in **WebRTC**, senza software di ter
 la pagina poltrona pubblica webcam e microfono, la pagina `/feed/` li mostra a schermo intero
 sull'uscita HDMI verso il mixer. Il driver NDI resta disponibile come alternativa.
 
+**Messa in servizio in studio:** vedi [`docs/INSTALLAZIONE.md`](docs/INSTALLAZIONE.md) — PC server,
+poltrona pilota, altre poltrone, accensione.
+
 ## Requisiti
 
 - Node.js 20 o superiore (testato su 22)

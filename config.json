@@ -17,7 +17,8 @@
         "pitch": -20.2,
         "yaw": 7.2,
         "zoom": 1
-      }
+      },
+      "tracking": "normal"
     },
     {
       "id": "post-02",
