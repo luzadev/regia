@@ -292,8 +292,12 @@ const wss = new WebSocketServer({ server, path: '/ws' });
  * server's errors on the WebSocketServer, and its listener is registered
  * first, so a handler on the HTTP server alone never runs.
  */
+let bindFailed = false;
 function onServerError(e) {
   if (e && (e.code === 'EADDRINUSE' || e.code === 'EACCES')) {
+    // Same error, second emitter: already reported, exit already on its way.
+    if (bindFailed) return;
+    bindFailed = true;
     const port = config.http_port || 8080;
     console.error(
       e.code === 'EADDRINUSE'
@@ -301,7 +305,10 @@ function onServerError(e) {
         : `[regia] porta ${port} non consentita: servono privilegi o un'altra porta.`
     );
     log.event('listen_error', { code: e.code, message: e.message });
-    process.exit(1);
+    // Started by the desktop app: tell it why, so it can say so instead of retrying.
+    if (process.send) process.send({ type: 'listen_error', code: e.code, port }, () => process.exit(1));
+    else process.exit(1);
+    return;
   }
   // Anything else is a runtime hiccup: report it, never take the show down.
   console.error(`[regia] errore del server: ${e.message}`);
@@ -954,6 +961,7 @@ server.listen(config.http_port || 8080, config.bind_host || '0.0.0.0', () => {
   }
   console.log(`[regia] driver: video=${video.name} lights=${lights.name} relay=${relay.name}`);
   log.event('server_start', { port: addr.port, stations: studio.list().length });
+  if (process.send) process.send({ type: 'listening', port: addr.port, scheme });
 
   // Fail-safe on boot: the feed at rest is black and every light is off. Going
   // through the driver wrapper means an unreachable Studio Monitor shows up in
@@ -984,6 +992,10 @@ function shutdown(signal) {
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+// The desktop app asks over IPC: on Windows a child gets no SIGTERM to handle.
+process.on('message', (m) => {
+  if (m && m.type === 'shutdown') shutdown('app');
+});
 process.on('uncaughtException', (e) => {
   // A driver or client bug must never kill the process during a live show.
   console.error(`[uncaught] ${e.stack || e.message}`);
