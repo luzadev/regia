@@ -252,9 +252,17 @@
 
   function renderCameraBar(station) {
     var bar = document.getElementById('camera-bar');
+    var hint = document.getElementById('camera-hint');
     var cam = station && station.camera;
     // Only a previewed station, not on air, with a camera agent connected.
     bar.hidden = !station || station.state === 'LIVE' || !cam || !cam.connected;
+    // Previewing a station whose camera cannot be driven: say so, otherwise the
+    // missing controls look like a fault.
+    hint.hidden = !(station && station.state !== 'LIVE' && (!cam || !cam.connected));
+    if (!hint.hidden) {
+      hint.textContent = 'Comandi telecamera non disponibili per ' + (station.name || station.label) +
+        ': nessun agente telecamera collegato su quella poltrona (vedi agent/README.md).';
+    }
     if (bar.hidden) return;
 
     var info = document.getElementById('cam-info');
