@@ -6,7 +6,7 @@ con le due app desktop:
 | App | Dove | Cosa fa |
 | --- | --- | --- |
 | **Regia** (`Regia-Setup-1.0.0.exe`) | PC server | avvia il server, apre la dashboard, mette il feed a schermo intero sul monitor del mixer |
-| **Regia Poltrona** (`Regia-Poltrona-Setup-1.0.0.exe`) | ogni poltrona | pagina poltrona a schermo intero + agente telecamera OBSBOT, in un solo programma |
+| **Regia Poltrona** (`Regia-Poltrona-Setup-1.0.0.exe`) | ogni poltrona | pagina poltrona a schermo intero + agente telecamera OBSBOT (ponte e SDK inclusi), in un solo programma |
 
 Rispetto all'installazione a mano non servono più Node.js, Chrome, `openssl`, `certutil` né i
 file `.cmd` di avvio: il certificato lo crea l'app Regia e le poltrone lo riconoscono con un
@@ -26,11 +26,12 @@ Nei passi, `192.168.10.10` è l'indirizzo del PC server: sostituiscilo con il tu
 | Cosa | Dove |
 | --- | --- |
 | I due installer `.exe` | vedi *Generare gli installer* in fondo |
-| L'SDK OBSBOT `libdev_v2.1.0_8.zip` | non è nel repository: copialo a parte |
-| Visual Studio Build Tools (carico *Sviluppo di applicazioni desktop con C++*), Node.js 20+ e il codice | **solo** sulla poltrona pilota, per compilare il ponte OBSBOT una volta |
+| L'SDK OBSBOT `libdev_v2.1.0_8.zip` | non è nel repository: si usa solo per compilare il ponte |
+| Un PC Windows con Visual Studio Build Tools (carico *Sviluppo di applicazioni desktop con C++*), Node.js 20+ e il codice | **una volta sola**, per compilare il ponte OBSBOT prima di generare l'installer della poltrona |
 
-**Licenza SDK:** lo zip OBSBOT non contiene un file di licenza. Prima di copiare `libdev.dll`
-su sette computer verifica i termini d'uso con OBSBOT.
+**SDK OBSBOT:** proprietario, ma OBSBOT ha autorizzato la distribuzione dentro queste app.
+L'installer della poltrona contiene già il ponte e le DLL dell'SDK: sulle poltrone non si copia
+nulla a mano. Il repository invece continua a non contenerli.
 
 **Avviso di Windows all'installazione.** Gli installer non sono firmati: Windows mostra
 «Windows ha protetto il PC». Clicca **Ulteriori informazioni → Esegui comunque**.
@@ -131,28 +132,18 @@ Da qui in poi l'app parte con Windows, a schermo intero. Scorciatoie per il tecn
 Dati e registri in `%APPDATA%\Regia Poltrona\` (`pairing.json`, `logs\app.log`,
 `logs\agent.log`).
 
-### 2.3 Ponte OBSBOT (una volta sola, su questa poltrona)
-Serve il codice del repository (clone o ZIP in `C:\regia`) e i Build Tools.
+### 2.3 Telecamera
+Il ponte OBSBOT è dentro l'app. In `%APPDATA%\Regia Poltrona\logs\agent.log` deve comparire:
+```
+[agente] telecamera trovata: Tiny 2 Lite sn … firmware …
+[agente] regole di sicurezza: tracking AI spento:ok, gesti spenti:ok
+```
+Se il ponte mancasse (installer generato con `REGIA_ALLOW_NO_BRIDGE=1`) la poltrona funziona lo
+stesso, video e audio, ma senza controlli della telecamera dalla regia: la schermata di
+abbinamento lo segnala in basso.
 
-1. Estrai l'SDK, ad esempio in `C:\obsbot\libdev_v2.1.0_8`.
-2. Apri **x64 Native Tools Command Prompt for VS**:
-
-   ```bat
-   cd C:\regia
-   set OBSBOT_SDK_DIR=C:\obsbot\libdev_v2.1.0_8
-   agent\bridge\build.cmd
-   ```
-3. In `C:\regia\agent\native\` devono esserci `obsbot_bridge.dll`, `libdev.dll`,
-   `w32-pthreads.dll`. **Conserva questi tre file**: sulle altre poltrone si copiano e basta.
-4. Copiali in `%APPDATA%\Regia Poltrona\native\` (crea la cartella).
-5. Chiudi l'app (`Ctrl+Maiusc+Q`) e riavviala. In `logs\agent.log` deve comparire:
-   ```
-   [agente] telecamera trovata: Tiny 2 Lite sn … firmware …
-   [agente] regole di sicurezza: tracking AI spento:ok, gesti spenti:ok
-   ```
-
-Se il ponte manca, la poltrona funziona lo stesso (video e audio), senza controlli della
-telecamera dalla regia: la schermata di abbinamento lo segnala in basso.
+Per provare un ponte diverso senza reinstallare, i tre file messi in
+`%APPDATA%\Regia Poltrona\native\` hanno la precedenza su quelli dell'installer.
 
 ### 2.4 Collaudo della pilota, dalla regia
 1. La scheda **Poltrona 1** è **online**, con badge verde **cam** e blu **ptz**.
@@ -176,12 +167,11 @@ del server.
 
 ## 3. Le altre sei poltrone
 
-Per ciascuna (`post-02` … `post-07`), come la pilota **tranne la compilazione**:
+Per ciascuna (`post-02` … `post-07`), come la pilota:
 
 1. Windows: utente con accesso automatico, `powercfg` (2.1), OBSBOT su USB diretta.
 2. Installa **Regia Poltrona**, abbina scegliendo la poltrona giusta (2.2).
-3. Copia i tre file del ponte in `%APPDATA%\Regia Poltrona\native\` e riavvia l'app.
-4. Collaudo 2.4, punti 1–3.
+3. Collaudo 2.4, punti 1–3.
 
 Una poltrona già collegata da un altro computer compare come «già collegata altrove»: per
 prenderla serve un secondo tocco, ed è giusto così solo se stai sostituendo quel computer.
@@ -208,7 +198,7 @@ prenderla serve un secondo tocco, ed è giusto così solo se stai sostituendo qu
 | Poltrona: «La poltrona post-0N non esiste più» | tolta dalla dashboard: riaggiungila o abbina un'altra poltrona |
 | Il server ha cambiato IP | `Ctrl+Maiusc+F12` su ogni poltrona e nuovo indirizzo; l'impronta resta la stessa |
 | Badge **cam !** ambra | telecamera o microfono OBSBOT non trovati, o accesso negato in *Privacy → Fotocamera* |
-| Nessun badge **ptz** | ponte non copiato in `native\`, o agente fermo: guarda `logs\agent.log` |
+| Nessun badge **ptz** | agente fermo o telecamera non trovata: guarda `logs\agent.log` della poltrona |
 | «POLTRONA APERTA ALTROVE» | la stessa poltrona è aperta anche su un altro computer o in un browser |
 | Banner rosso «nessun ricevitore feed» | nessun secondo schermo collegato al server, o feed chiuso: menu **Feed** |
 | Audio del feed muto | uscita audio di Windows non impostata sull'HDMI del mixer |
@@ -218,9 +208,25 @@ prenderla serve un secondo tocco, ed è giusto così solo se stai sostituendo qu
 
 ## Generare gli installer
 
-Da un PC con Node.js 20+ e internet (Windows, oppure macOS: gli installer Windows si generano
-anche da lì), nella cartella del repository:
+Serve Node.js 20+ e internet. L'installer della regia si genera ovunque (Windows o macOS);
+quello della poltrona ha bisogno prima del **ponte OBSBOT compilato su Windows**.
 
+### 1. Ponte OBSBOT (una volta, su un PC Windows)
+1. Codice del repository in `C:\regia` (clone o ZIP) e SDK estratto, ad esempio in
+   `C:\obsbot\libdev_v2.1.0_8`.
+2. Apri **x64 Native Tools Command Prompt for VS**:
+
+   ```bat
+   cd C:\regia
+   set OBSBOT_SDK_DIR=C:\obsbot\libdev_v2.1.0_8
+   agent\bridge\build.cmd
+   ```
+3. In `C:\regia\agent\native\` devono esserci `obsbot_bridge.dll`, `libdev.dll`,
+   `w32-pthreads.dll`. Se generi l'installer su un altro computer, copia lì i tre file nella
+   stessa cartella `agent/native/`. Vanno ricompilati solo cambiando versione dell'SDK o il
+   file `obsbot_bridge.cpp`.
+
+### 2. Installer
 ```bash
 cd apps/regia
 npm install
@@ -231,7 +237,9 @@ npm install
 npm run dist:win        # → apps/poltrona/dist/Regia-Poltrona-Setup-1.0.0.exe
 ```
 
-Il ponte OBSBOT e l'SDK **non** finiscono negli installer: si copiano a parte (2.3).
+Se in `agent/native/` mancano i tre file, `npm run dist:win` della poltrona si ferma e dice
+quali: un installer che non comanda le telecamere non deve uscire per sbaglio. Per farlo
+apposta: `REGIA_ALLOW_NO_BRIDGE=1 npm run dist:win`.
 
 Per provare le app senza installarle: `npm start` nelle due cartelle (`REGIA_WINDOWED=1` per la
 poltrona in finestra, `REGIA_APP_DATA=<cartella>` per non toccare i dati veri).

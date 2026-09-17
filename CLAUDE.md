@@ -25,7 +25,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
 - **Backend**: Node.js 20+, Express + `ws` (WebSocket). Un solo processo.
 - **Frontend**: HTML/CSS/JS vanilla, servito dal backend. Nessun framework, nessun build step, nessun bundler. Deve girare su Chromium in kiosk su hardware modesto (N100).
 - **Video/audio**: WebRTC nativo del browser (nessuna libreria), signalling sul WebSocket esistente, `iceServers: []`.
-- **Telecamere (deciso il 17/9/2026)**: su ogni poltrona gira un **agente Node** (`agent/`) che comanda la OBSBOT Tiny 2 Lite con l'**SDK ufficiale OBSBOT**, attraverso un **ponte C++ minimo** caricato con `koffi`. È l'unico codice nativo del progetto. L'SDK è proprietario e **non va nel repository** (`docs/libdev*` e `agent/native/` sono ignorati): il ponte si compila contro l'SDK scaricato, su Windows con Visual Studio Build Tools.
+- **Telecamere (deciso il 17/9/2026)**: su ogni poltrona gira un **agente Node** (`agent/`) che comanda la OBSBOT Tiny 2 Lite con l'**SDK ufficiale OBSBOT**, attraverso un **ponte C++ minimo** caricato con `koffi`. È l'unico codice nativo del progetto. L'SDK è proprietario e **non va nel repository** (`docs/libdev*` e `agent/native/` sono ignorati): il ponte si compila contro l'SDK scaricato, su Windows con Visual Studio Build Tools. **Distribuzione autorizzata da OBSBOT (17/9/2026)** dentro le app del progetto: l'installer della poltrona include `obsbot_bridge.dll`, `libdev.dll` e `w32-pthreads.dll` presi da `agent/native/` al momento della build, e la build si rifiuta di partire senza.
 - **App desktop Windows (decise il 17/9/2026)**: in studio non si usano più Chrome in kiosk e file `.cmd`, ma due app **Electron** in `apps/`. **Regia** (PC server, anch'esso Windows) avvia `server/index.js` come processo figlio supervisionato, crea al primo avvio `config.json` e certificato in `%APPDATA%\Regia`, apre la dashboard e mette `/feed/` a schermo intero sul secondo schermo. **Regia Poltrona** mostra `/poltrona/` in kiosk ed esegue l'agente telecamera come processo figlio. Le poltrone si fidano del certificato auto-firmato per **impronta SHA-256**, memorizzata con un abbinamento al primo avvio (niente `certutil`). Le app non contengono logica di prodotto: server e pagine restano quelli del repository, serviti dal server, e l'installazione a mano resta possibile. Il server parla con l'app via IPC (`listening`, `listen_error`, `shutdown`), perché su Windows un processo figlio non riceve SIGTERM.
 - **Stato**: in memoria, con log eventi append-only su file JSONL (per la cronologia dei tempi di parola). Niente database. Unica eccezione alla memoria volatile: i nomi ospite (vedi §6).
 - **Configurazione**: un solo file `config.json` (vedi §6).
@@ -57,14 +57,14 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   diagnostica/        # prova telecamera sul computer della poltrona: dispositivi, risoluzioni, PTZ
   shared/             # css comune, client ws con riconnessione, WebRTC
 /agent                # agente telecamera per le poltrone (Node + ponte nativo)
-/apps
-  regia/              # app Electron del PC server: server + dashboard + feed sul mixer
-  poltrona/           # app Electron della poltrona: kiosk + agente telecamera, abbinamento
-  common/             # impronta certificato e supervisione dei processi figli
   camera-agent.js     # ruolo "camera": regole di sicurezza, comandi dalla regia, stato
   bridge.js           # carica il ponte nativo con koffi
   bridge/             # obsbot_bridge.cpp + script di compilazione (macOS/Linux e Windows)
   README.md           # installazione su Windows
+/apps
+  regia/              # app Electron del PC server: server + dashboard + feed sul mixer
+  poltrona/           # app Electron della poltrona: kiosk + agente telecamera, abbinamento
+  common/             # impronta certificato e supervisione dei processi figli
 /scripts
   sim.js              # simulatore poltrone (npm run sim)
 /test
