@@ -126,6 +126,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 - `countdown_default_s: null` = un `grant` senza `countdown_s` apre un LIVE **senza** countdown.
 - **NDI Studio Monitor**: si comanda con un POST JSON su `/v1/configuration` — `{"version":1,"NDI_source":"MACCHINA (Stream)"}` per commutare, `"NDI_source":""` per il nero. `/v1/sources` elenca le sorgenti viste in rete (`npm run ndi:sources`). **La prima finestra di Studio Monitor ascolta sulla porta 80, la seconda sulla 81**, ecc.: `ndi_monitor_url` deve puntare alla finestra che sta sull'uscita HDMI pulita. Percorso, nome del campo e versione API restano configurabili (`ndi_config_path`, `ndi_source_field`, `ndi_api_version`) per eventuali build diverse; `ndi_monitor_auth` accetta `{ "user": "...", "password": "..." }` se l'interfaccia è protetta.
 - **Luci e relè**: WLED riceve un POST su `/json/state` con il segmento della poltrona (`transition: 0`, perché una spia commuta e non sfuma); a riposo il segmento si spegne ma il controller resta acceso, così le altre poltrone non si toccano. Gli id degli effetti sono in `wled_effects` perché non tutte le build WLED li numerano uguale. Il relè usa i template `relay_on_url` / `relay_off_url` con segnaposto `{url}`: il default è Shelly gen 1, per la gen 2 basta cambiare le due stringhe. Una poltrona senza `wled_segment` o senza `relay_url` viene semplicemente saltata: è una scelta di configurazione, non un guasto.
+- **Dispositivi della poltrona**: `webrtc_video_device` / `webrtc_audio_device` scelgono telecamera e microfono per nome (frammento, senza maiuscole). Le poltrone usano la **OBSBOT Tiny 2 Lite**. Senza questa scelta il browser prende i predefiniti, e su una macchina con più ingressi finisce con la telecamera giusta e il microfono sbagliato (verificato). Dispositivo non trovato = la poltrona funziona con il predefinito ma segnala un `warning`, che in regia accende il badge ambra.
 - **`tls`**: i browser espongono webcam, microfono e `RTCPeerConnection` **solo in contesto sicuro** (`https://` o `http://localhost`), quindi con le poltrone su altre macchine l'HTTPS è necessario, non opzionale. `npm run cert` genera un certificato auto-firmato per `localhost`, il nome macchina e tutti gli IP di rete. `tls: null` = HTTP, e le poltrone hanno la webcam solo su localhost. Un certificato mancante o illeggibile non ferma il server: riparte in HTTP con un avviso.
 - `control_token: null` disattiva l'autenticazione (LAN chiusa). Se valorizzato, il ruolo `control` deve presentarlo nell'`hello` e negli endpoint HTTP (header `X-Control-Token`).
 - **Poltrone dalla dashboard**: `stations` si può modificare anche dalla regia (aggiungi/rimuovi a caldo, senza riavvio). Il server riscrive `config.json` in modo atomico tenendo una copia in `config.json.bak`, quindi il file resta l'unica fonte di verità. Una poltrona **in onda non è rimovibile**: prima si chiude l'intervento.
@@ -164,7 +165,7 @@ server → mittente: { "type": "error", "code": "...", "message": "..." }  // co
 Percorso video WebRTC:
 
 ```
-station → server : { "type": "media_status", "ok": true|false, "message": "..." }  // webcam/mic
+station → server : { "type": "media_status", "ok": true|false, "message": "...", "warning": "...", "devices": { "video": "...", "audio": "..." } }
 server → station : { "type": "feed_start", "peer": "feed"|"mon-1", "quality": { "max_kbps": 600, "scale": 2 } }
 server → station : { "type": "feed_stop", "peer": "feed"|"mon-1" }
 server → feed    : { "type": "feed_target", "station": "post-03"|null }
@@ -191,7 +192,7 @@ Schema di `state_sync`:
     { "id": "post-01", "label": "Poltrona 1", "name": "Rossi", "state": "REQUESTED",
       "connected": true, "requested_at": 1709999990000, "live_since": null,
       "deadline": null, "countdown_total_s": null, "denied_until": null,
-      "media": { "ok": true, "message": null } }
+      "media": { "ok": true, "message": null, "warning": null, "devices": { "video": "OBSBOT Tiny 2 Lite StreamCamera", "audio": "OBSBOT Tiny 2 Lite Microphone" } } }
   ]
 }
 ```

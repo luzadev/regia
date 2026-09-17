@@ -78,6 +78,8 @@
       "autoGainControl": false
     }
   },
+  "webrtc_video_device": "OBSBOT",
+  "webrtc_audio_device": "OBSBOT",
   "lights_driver": "mock",
   "relay_driver": "mock",
   "ndi_monitor_url": "http://127.0.0.1:80",

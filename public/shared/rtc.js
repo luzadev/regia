@@ -74,6 +74,33 @@
     }
   }
 
+  /**
+   * First device of `kind` whose label contains `match`, case-insensitive.
+   * Chrome's "default" and "communications" entries are aliases of a real
+   * device: they are skipped so the choice is always a concrete one.
+   */
+  function pickDevice(devices, kind, match) {
+    if (!match) return null;
+    var needle = String(match).toLowerCase();
+    for (var i = 0; i < devices.length; i++) {
+      var d = devices[i];
+      if (d.kind !== kind || !d.label) continue;
+      if (d.deviceId === 'default' || d.deviceId === 'communications') continue;
+      if (d.label.toLowerCase().indexOf(needle) !== -1) return d;
+    }
+    return null;
+  }
+
+  /** Adds an exact deviceId to a constraint that may be `true` or an object. */
+  function withDevice(constraint, deviceId) {
+    var out = {};
+    if (constraint && typeof constraint === 'object') {
+      for (var k in constraint) out[k] = constraint[k];
+    }
+    out.deviceId = { exact: deviceId };
+    return out;
+  }
+
   /** Runs on the station page. */
   function StationPublisher(bridge, options) {
     this.bridge = bridge;
@@ -81,6 +108,11 @@
     this.maxBitrateKbps = options.maxBitrateKbps || 4000;
     this.minBitrateKbps = options.minBitrateKbps || 1500;
     this.codec = options.codec || null;
+    // Label fragments of the devices to use, e.g. "OBSBOT". Without them the
+    // browser picks its defaults, which on a machine with more than one input
+    // means the right camera next to the wrong microphone.
+    this.videoMatch = options.videoMatch || null;
+    this.audioMatch = options.audioMatch || null;
     this.onStatus = options.onStatus || function () {};
     this.stream = null;
     this.peers = {}; // peer id -> RTCPeerConnection (the clean feed, plus previews)
@@ -104,24 +136,87 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return this.fail('Questo browser non espone webcam e microfono');
     }
+    var base = this.constraints || { video: true, audio: true };
+
     navigator.mediaDevices
-      .getUserMedia(this.constraints)
-      .then(function (stream) {
-        self.stream = stream;
-        self.onStatus(true, null);
-        self.bridge.send({ type: 'media_status', ok: true });
-        // A camera unplugged mid-show must show up in the dashboard.
-        stream.getTracks().forEach(function (track) {
-          track.onended = function () {
-            self.fail('Dispositivo scollegato');
-            self.retryLater();
-          };
+      // First open whatever the browser offers: device labels stay empty
+      // until permission is granted, so this also unlocks the names.
+      .getUserMedia(base)
+      .then(function (first) {
+        if (!self.videoMatch && !self.audioMatch) return { stream: first, warnings: [] };
+
+        return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+          var warnings = [];
+          var cam = pickDevice(devices, 'videoinput', self.videoMatch);
+          var mic = pickDevice(devices, 'audioinput', self.audioMatch);
+          // Not found is a warning, not a failure: a naming difference must
+          // not take a station off air, but the control room has to know.
+          if (self.videoMatch && !cam) warnings.push('telecamera «' + self.videoMatch + '» non trovata, uso la predefinita');
+          if (self.audioMatch && !mic) warnings.push('microfono «' + self.audioMatch + '» non trovato, uso il predefinito');
+
+          var vTrack = first.getVideoTracks()[0];
+          var aTrack = first.getAudioTracks()[0];
+          var videoOk = !cam || (vTrack && vTrack.getSettings().deviceId === cam.deviceId);
+          var audioOk = !mic || (aTrack && aTrack.getSettings().deviceId === mic.deviceId);
+          if (videoOk && audioOk) return { stream: first, warnings: warnings };
+
+          first.getTracks().forEach(function (t) {
+            t.stop();
+          });
+          return navigator.mediaDevices
+            .getUserMedia({
+              video: cam && base.video ? withDevice(base.video, cam.deviceId) : base.video,
+              audio: mic && base.audio ? withDevice(base.audio, mic.deviceId) : base.audio
+            })
+            .then(function (chosen) {
+              return { stream: chosen, warnings: warnings };
+            });
         });
+      })
+      .then(function (result) {
+        self.accept(result.stream, result.warnings);
       })
       .catch(function (e) {
         self.fail(e.name === 'NotAllowedError' ? 'Permesso negato per webcam/microfono' : e.message);
         self.retryLater();
       });
+  };
+
+  StationPublisher.prototype.accept = function (stream, warnings) {
+    var self = this;
+    this.stream = stream;
+    var v = stream.getVideoTracks()[0];
+    var a = stream.getAudioTracks()[0];
+    var warning = warnings && warnings.length ? warnings.join(' · ') : null;
+
+    this.onStatus(true, warning);
+    this.bridge.send({
+      type: 'media_status',
+      ok: true,
+      warning: warning,
+      // The labels in use, so the dashboard can say which microphone is live.
+      devices: { video: v ? v.label : null, audio: a ? a.label : null }
+    });
+
+    // A camera unplugged mid-show must show up in the dashboard.
+    stream.getTracks().forEach(function (track) {
+      track.onended = function () {
+        self.fail('Dispositivo scollegato');
+        self.retryLater();
+      };
+    });
+  };
+
+  /** A camera plugged back in should not wait for the next retry tick. */
+  StationPublisher.prototype.watchDevices = function () {
+    var self = this;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.addEventListener) return;
+    navigator.mediaDevices.addEventListener('devicechange', function () {
+      if (!self.stream) {
+        clearTimeout(self.retryTimer);
+        self.start();
+      }
+    });
   };
 
   StationPublisher.prototype.fail = function (message) {
@@ -396,6 +491,8 @@
   };
 
   window.tuneVideoBitrate = tuneVideoBitrate; // exported for tests and diagnostics
+  window.pickDevice = pickDevice;
+  window.withDevice = withDevice;
   window.StationPublisher = StationPublisher;
   window.FeedReceiver = FeedReceiver;
 })();

@@ -277,19 +277,33 @@ test('manual mode is a flag, not a state change', () => {
 
 test('media status is reported per station and cleared when it disconnects', () => {
   const { studio } = makeStudio();
+  const empty = { ok: null, message: null, warning: null, devices: null };
   studio.setConnected('post-01', true);
-  assert.deepEqual(studio.get('post-01').media, { ok: null, message: null });
+  assert.deepEqual(studio.get('post-01').media, empty);
 
   studio.setMedia('post-01', true);
-  assert.deepEqual(studio.get('post-01').media, { ok: true, message: null });
+  assert.deepEqual(studio.get('post-01').media, { ok: true, message: null, warning: null, devices: null });
 
   studio.setMedia('post-01', false, 'Permesso negato');
-  assert.deepEqual(studio.get('post-01').media, { ok: false, message: 'Permesso negato' });
+  assert.equal(studio.get('post-01').media.ok, false);
+  assert.equal(studio.get('post-01').media.message, 'Permesso negato');
 
   // A station that is gone tells us nothing about its camera any more.
   studio.setConnected('post-01', false);
-  assert.deepEqual(studio.get('post-01').media, { ok: null, message: null });
+  assert.deepEqual(studio.get('post-01').media, empty);
   assert.equal(studio.setMedia('post-99', true).code, 'unknown_station');
+});
+
+test('a working station can still warn that it is not using the devices asked for', () => {
+  const { studio } = makeStudio();
+  studio.setMedia('post-01', true, null, {
+    warning: 'microfono «OBSBOT» non trovato, uso il predefinito',
+    devices: { video: 'OBSBOT Tiny 2 Lite StreamCamera', audio: 'Microfono MacBook Pro' }
+  });
+  const media = studio.get('post-01').media;
+  assert.equal(media.ok, true, 'a warning does not take the station off air');
+  assert.match(media.warning, /non trovato/);
+  assert.deepEqual(media.devices, { video: 'OBSBOT Tiny 2 Lite StreamCamera', audio: 'Microfono MacBook Pro' });
 });
 
 test('snapshot carries the feed status for the dashboard', () => {

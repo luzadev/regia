@@ -36,7 +36,7 @@ function makeStation(config) {
     countdown_total_s: null,
     denied_until: null,
     intervention_id: null,
-    media: { ok: null, message: null },
+    media: { ok: null, message: null, warning: null, devices: null },
     config
   };
 }
@@ -119,15 +119,22 @@ class Studio {
     if (!st || st.connected === connected) return false;
     st.connected = connected;
     // A station that is gone tells us nothing about its camera any more.
-    if (!connected) st.media = { ok: null, message: null };
+    if (!connected) st.media = { ok: null, message: null, warning: null, devices: null };
     return true;
   }
 
   /** Camera/microphone availability reported by the station page. */
-  setMedia(id, ok, message) {
+  setMedia(id, ok, message, extra = {}) {
     const st = this.get(id);
     if (!st) return err('unknown_station', `Poltrona sconosciuta: ${id}`);
-    st.media = { ok: !!ok, message: message ? String(message).slice(0, 200) : null };
+    const label = (v) => (typeof v === 'string' ? v.slice(0, 120) : null);
+    st.media = {
+      ok: !!ok,
+      message: message ? String(message).slice(0, 200) : null,
+      // Working, but not with the devices that were asked for.
+      warning: extra.warning ? String(extra.warning).slice(0, 200) : null,
+      devices: extra.devices ? { video: label(extra.devices.video), audio: label(extra.devices.audio) } : null
+    };
     return { ok: true, plan: [] };
   }
 

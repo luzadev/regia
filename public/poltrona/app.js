@@ -62,8 +62,11 @@
   var publisher = new StationPublisher(bridge, {
     constraints: window.REGIA_CONSTRAINTS || { video: true, audio: true },
     onStatus: function (ok, message) {
-      mediaWarning.hidden = ok;
-      if (!ok && message) mediaWarning.textContent = 'Webcam o microfono non disponibili — ' + message;
+      // A warning (e.g. the configured microphone was not found) is shown too:
+      // it is for the crew, and it is exactly what they need to see.
+      mediaWarning.hidden = ok && !message;
+      if (!ok) mediaWarning.textContent = 'Webcam o microfono non disponibili — ' + (message || '');
+      else if (message) mediaWarning.textContent = 'Attenzione — ' + message;
     }
   });
 
@@ -74,10 +77,13 @@
       if (cfg.webrtc_max_bitrate_kbps) publisher.maxBitrateKbps = cfg.webrtc_max_bitrate_kbps;
       if (cfg.webrtc_min_bitrate_kbps) publisher.minBitrateKbps = cfg.webrtc_min_bitrate_kbps;
       if (cfg.webrtc_codec) publisher.codec = cfg.webrtc_codec;
+      if (cfg.webrtc_video_device) publisher.videoMatch = cfg.webrtc_video_device;
+      if (cfg.webrtc_audio_device) publisher.audioMatch = cfg.webrtc_audio_device;
     })
     .catch(function () {})
     .then(function () {
       publisher.start();
+      publisher.watchDevices();
     });
 
   document.getElementById('btn-request').addEventListener('click', function () {

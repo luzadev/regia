@@ -509,9 +509,15 @@ function handleStationMessage(ws, msg) {
       return;
     }
     case 'media_status': {
-      const res = studio.setMedia(id, msg.ok, msg.message);
+      const res = studio.setMedia(id, msg.ok, msg.message, { warning: msg.warning, devices: msg.devices });
       if (res.ok) {
-        log.event('media_status', { station: id, ok: !!msg.ok, message: msg.message || null });
+        log.event('media_status', {
+          station: id,
+          ok: !!msg.ok,
+          message: msg.message || null,
+          warning: msg.warning || null,
+          devices: msg.devices || null
+        });
         // A camera that only becomes available after the grant must still reach
         // the feed instead of leaving it black.
         if (msg.ok && feedHub.target === id && !feedHub.ready) {
@@ -768,7 +774,9 @@ app.get('/api/ui-config', (_req, res) =>
     webrtc_max_bitrate_kbps: config.webrtc_max_bitrate_kbps || null,
     webrtc_min_bitrate_kbps: config.webrtc_min_bitrate_kbps || null,
     webrtc_codec: config.webrtc_codec || null,
-    webrtc_monitor_quality: config.webrtc_monitor_quality || null
+    webrtc_monitor_quality: config.webrtc_monitor_quality || null,
+    webrtc_video_device: config.webrtc_video_device || null,
+    webrtc_audio_device: config.webrtc_audio_device || null
   })
 );
 /**

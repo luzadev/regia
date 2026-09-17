@@ -288,9 +288,10 @@
 
       var media = s.media || {};
       card.cam.hidden = media.ok === null || media.ok === undefined;
-      card.cam.className = 'badge ' + (media.ok ? 'cam-ok' : 'cam-ko');
-      card.cam.textContent = media.ok ? 'cam' : 'cam ko';
-      card.cam.title = media.message || '';
+      card.cam.className = 'badge ' + (!media.ok ? 'cam-ko' : media.warning ? 'cam-warn' : 'cam-ok');
+      card.cam.textContent = !media.ok ? 'cam ko' : media.warning ? 'cam !' : 'cam';
+      var inUse = media.devices ? [media.devices.video, media.devices.audio].filter(Boolean).join(' · ') : '';
+      card.cam.title = [media.message, media.warning, inUse].filter(Boolean).join('\n');
       if (document.activeElement !== card.name) card.name.value = s.name || '';
 
       var isLive = s.state === 'LIVE';

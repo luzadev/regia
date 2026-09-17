@@ -75,6 +75,8 @@
       "autoGainControl": false
     }
   },
+  "webrtc_video_device": null,
+  "webrtc_audio_device": null,
   "lights_driver": "mock",
   "relay_driver": "mock",
   "ndi_monitor_url": "http://127.0.0.1:80",

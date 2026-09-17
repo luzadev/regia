@@ -136,6 +136,47 @@ il feed resta a ricevitore singolo.
 
 Funziona anche quando `/feed/` non è ancora aperta, che è la condizione tipica in allestimento.
 
+### Telecamera delle poltrone: OBSBOT Tiny 2 Lite
+
+Misurata il 17/9/2026 collegata via USB, dal browser (Chrome):
+
+| Modo | Supportato |
+| --- | --- |
+| 3840×2160 @ 30 fps | sì |
+| 1920×1080 @ 60 fps | sì |
+| 1920×1080 @ 30 fps | sì |
+| 1280×720 @ 60 fps | sì |
+| 1280×720 @ 30 fps | sì — **default attuale** |
+
+Microfono integrato: si presenta come «OBSBOT Tiny 2 Lite Microphone», e il browser lo
+consegna mono a 48 kHz.
+
+**Scegliere i dispositivi per nome, non lasciare fare al browser.** Con la scelta predefinita,
+sulla macchina di prova il browser ha preso la telecamera OBSBOT ma **il microfono interno del
+computer**: l'ospite sarebbe andato in onda con l'immagine giusta e l'audio sbagliato. Per
+questo in `config.json`:
+
+```json
+"webrtc_video_device": "OBSBOT",
+"webrtc_audio_device": "OBSBOT"
+```
+
+Sono frammenti del nome del dispositivo, senza distinzione di maiuscole. Se il dispositivo
+indicato non si trova, la poltrona **funziona comunque** con quello predefinito, ma in regia
+il badge diventa **ambra `cam !`** e passandoci sopra si leggono l'avviso e i dispositivi
+effettivamente in uso: una differenza di nome non deve togliere una postazione dall'onda,
+ma la regia deve saperlo. Con `null` il browser sceglie da solo.
+
+**Risoluzione**: la telecamera arriva al 4K, ma a decidere è il mini PC che codifica. Il
+default resta 1280×720@30; per passare a 1080p, prova sulla macchina della poltrona con
+`webrtc_constraints.video` a 1920×1080 e controlla `qualityLimitationReason` (vedi *Qualità
+del video*): se dice `cpu`, torna a 720p oppure prova `"webrtc_codec": "H264"`.
+
+**Inquadratura automatica e gimbal** non sono comandabili dal browser: Chrome non espone
+pan, tilt né zoom per questo modello. Si impostano con l'app OBSBOT Center. Da verificare
+sull'hardware se l'impostazione resta memorizzata nella telecamera dopo averla scollegata:
+se sì, l'app serve solo una volta in fase di allestimento e non deve girare sulle poltrone.
+
 ### La pagina /feed/ sul PC di regia
 
 Va aperta in Chromium kiosk sul monitor collegato al mixer:
@@ -222,6 +263,7 @@ esplicitamente:
 | `webrtc_max_bitrate_kbps` | tetto (4000) |
 | `webrtc_codec` | `null` lascia scegliere il browser; `"H264"` di solito significa codifica hardware sui mini PC, `"VP9"` qualità migliore a parità di banda ma più CPU |
 | `webrtc_monitor_quality` | qualità dell'anteprima in dashboard (`max_kbps`, `scale`) |
+| `webrtc_video_device`, `webrtc_audio_device` | nome (anche parziale) di telecamera e microfono da usare, es. `"OBSBOT"` |
 
 Oltre a questo il sender chiede `degradationPreference: maintain-resolution`, cioè in caso di
 difficoltà preferisce perdere fotogrammi che nitidezza — su un talking head è la scelta giusta.
