@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Regia</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d10; color: #f2f5f8;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .dot { width: 18px; height: 18px; border-radius: 50%; background: #16c463; animation: pulse 1.4s ease-in-out infinite; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; color: #8b97a6; }
+  @keyframes pulse { 50% { opacity: .25; } }
+</style>
+</head>
+<body>
+  <div class="dot"></div>
+  <h1>Avvio del server Regia…</h1>
+  <p>La dashboard si apre da sola appena il server è pronto.</p>
+</body>
+</html>

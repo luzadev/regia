@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Regia · Abbinamento poltrona</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="setup.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Abbinamento poltrona</h1>
+    <p class="muted">Collega questo computer al server della regia e scegli quale poltrona è.</p>
+  </header>
+
+  <section class="step">
+    <h2><span>1</span> Indirizzo del server</h2>
+    <form id="find">
+      <input id="address" placeholder="es. 192.168.10.10" autocomplete="off" spellcheck="false" required>
+      <button class="primary" id="find-btn">Cerca</button>
+    </form>
+    <p class="note" id="find-msg" hidden></p>
+  </section>
+
+  <section class="step" id="trust" hidden>
+    <h2><span>2</span> Controlla l'impronta del certificato</h2>
+    <p class="muted">Deve essere uguale a quella mostrata dall'app <b>Regia</b> sul PC server,
+      menu <b>Aiuto › Collegamento poltrone</b>. Se è diversa non proseguire.</p>
+    <code id="fp"></code>
+    <p class="note warn" id="http-warn" hidden>Il server non usa HTTPS: questa poltrona non potrà usare webcam e microfono.</p>
+  </section>
+
+  <section class="step" id="choose" hidden>
+    <h2><span>3</span> Quale poltrona è questa?</h2>
+    <div class="stations" id="stations"></div>
+    <p class="note" id="save-msg" hidden></p>
+  </section>
+
+  <section class="footer">
+    <div class="muted small" id="bridge"></div>
+    <div class="actions">
+      <button id="back" hidden>Torna alla poltrona</button>
+      <button id="quit">Esci dall'app</button>
+    </div>
+  </section>
+</main>
+<script src="setup.js"></script>
+</body>
+</html>

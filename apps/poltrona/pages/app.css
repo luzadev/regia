@@ -1,0 +1,14 @@
+/* Local screens of the station app: same look as the station page. */
+:root {
+  --bg: #0b0d10; --panel: #14181d; --panel-2: #1b2027; --line: #2a323c;
+  --text: #f2f5f8; --muted: #8b97a6; --green: #16c463; --amber: #ffaa00; --red: #ff2d2d;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, input { font: inherit; color: inherit; }
+button { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 22px; cursor: pointer; touch-action: manipulation; }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--green); border-color: var(--green); color: #04240f; font-weight: 700; }

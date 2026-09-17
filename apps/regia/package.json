@@ -1,0 +1,86 @@
+{
+  "name": "regia-app",
+  "productName": "Regia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Regia - app della regia: server, dashboard e feed pulito verso il mixer",
+  "author": "Luza Dev <luciano@zappacosta.eu>",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:dir": "electron-builder --dir"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "selfsigned": "^5.5.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "eu.zappacosta.regia.server",
+    "productName": "Regia",
+    "extraMetadata": {
+      "main": "apps/regia/main.js"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "!**/*",
+      "package.json",
+      "node_modules/**/*",
+      {
+        "from": ".",
+        "to": "apps/regia",
+        "filter": [
+          "main.js",
+          "lib/**",
+          "pages/**"
+        ]
+      },
+      {
+        "from": "../common",
+        "to": "apps/common"
+      },
+      {
+        "from": "../../server",
+        "to": "server"
+      },
+      {
+        "from": "../../public",
+        "to": "public"
+      },
+      {
+        "from": "../..",
+        "to": ".",
+        "filter": [
+          "config.example.json"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Regia-Setup-${version}.exe"
+    },
+    "toolsets": {
+      "nsis": "1.2.1"
+    }
+  }
+}

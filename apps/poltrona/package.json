@@ -1,0 +1,80 @@
+{
+  "name": "regia-poltrona",
+  "productName": "Regia Poltrona",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Regia - app della poltrona ospite: pagina a schermo intero e agente telecamera",
+  "author": "Luza Dev <luciano@zappacosta.eu>",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist:win": "npm install --no-save --force @koromix/koffi-win32-x64@3.3.0 && electron-builder --win nsis --x64",
+    "dist:dir": "electron-builder --dir"
+  },
+  "dependencies": {
+    "koffi": "^3.3.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
+    "selfsigned": "^5.5.0"
+  },
+  "build": {
+    "appId": "eu.zappacosta.regia.poltrona",
+    "productName": "Regia Poltrona",
+    "extraMetadata": {
+      "main": "apps/poltrona/main.js"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "!**/*",
+      "package.json",
+      "node_modules/**/*",
+      {
+        "from": ".",
+        "to": "apps/poltrona",
+        "filter": [
+          "main.js",
+          "preload.js",
+          "lib/**",
+          "pages/**"
+        ]
+      },
+      {
+        "from": "../common",
+        "to": "apps/common"
+      },
+      {
+        "from": "../../agent",
+        "to": "agent",
+        "filter": [
+          "camera-agent.js",
+          "bridge.js"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Regia-Poltrona-Setup-${version}.exe"
+    },
+    "toolsets": {
+      "nsis": "1.2.1"
+    }
+  }
+}

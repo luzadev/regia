@@ -9,3 +9,5 @@ docs/libdev*
 # native bridge build output (contains the proprietary OBSBOT SDK)
 agent/native/
 .DS_Store
+apps/*/dist/
+apps/*/dist-mac/
