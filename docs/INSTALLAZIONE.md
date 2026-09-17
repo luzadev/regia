@@ -208,6 +208,19 @@ prenderla serve un secondo tocco, ed è giusto così solo se stai sostituendo qu
 
 ## Generare gli installer
 
+**Il modo normale è automatico.** Un tag `vX.Y.Z` inviato a GitHub avvia la build Windows
+(`.github/workflows/windows.yml`): scarica la parte Windows dell'SDK OBSBOT da una release in
+bozza privata, compila il ponte con Visual Studio, verifica che la DLL si carichi, genera i due
+installer e crea una release in bozza da controllare e pubblicare. Dalla pagina *Actions* si può
+anche lanciare a mano: gli installer restano scaricabili come artefatto.
+
+```bash
+# aggiorna "version" in apps/regia/package.json e apps/poltrona/package.json, poi:
+git tag v1.0.2 && git push origin master v1.0.2
+```
+
+I passi qui sotto servono solo per generare gli installer a mano.
+
 Serve Node.js 20+ e internet. L'installer della regia si genera ovunque (Windows o macOS);
 quello della poltrona ha bisogno prima del **ponte OBSBOT compilato su Windows**.
 
