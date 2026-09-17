@@ -184,7 +184,7 @@ test('the last receiver leaving clears the ready state', async () => {
   await pending;
 
   hub.removeClient(feed);
-  assert.deepEqual(hub.status(), { receivers: 0, monitors: 0, target: 'post-01', ready: false, audio_blocked: false });
+  assert.deepEqual(hub.status(), { receivers: 0, monitors: 0, previews: 0, target: 'post-01', ready: false, audio_blocked: false });
 });
 
 test('a superseded switch rejects instead of leaving a promise pending forever', async () => {
@@ -211,7 +211,8 @@ test('a preview gets its own peer at reduced quality, without touching the feed'
   const id = hub.addMonitor(dashboard);
 
   assert.equal(feed.closedWith, null, 'a preview must never kick the clean feed out');
-  assert.deepEqual(dashboard.sent[0], { type: 'feed_target', station: 'post-01' });
+  assert.deepEqual(dashboard.sent[0], { type: 'preview_mode', station: null }, 'a new dashboard follows the air');
+  assert.deepEqual(dashboard.sent[1], { type: 'feed_target', station: 'post-01' });
   const start = station.sent.pop();
   assert.equal(start.type, 'feed_start');
   assert.equal(start.peer, id);
@@ -303,4 +304,163 @@ test('the preview runs even with no clean feed receiver: setup needs it most', a
   const start = station.sent.find((m) => m.type === 'feed_start' && m.peer === id);
   assert.ok(start, 'the station must be told to publish to the preview');
   assert.deepEqual(start.quality, { max_kbps: 600, scale: 2 });
+});
+
+// --- preview before going on air ------------------------------------------
+
+/** Hub with a clean feed on air and one dashboard, ready for preview tests. */
+function previewSetup({ live = 'post-01' } = {}) {
+  const stations = { 'post-01': fakeSocket(), 'post-02': fakeSocket(), 'post-03': fakeSocket() };
+  const hub = makeHub({ stations });
+  const feed = fakeSocket();
+  hub.addClient(feed);
+  if (live) hub.setTarget(live).catch(() => {});
+  const dashboard = fakeSocket();
+  const id = hub.addMonitor(dashboard);
+  for (const ws of [...Object.values(stations), feed, dashboard]) ws.sent.length = 0;
+  return { hub, stations, feed, dashboard, id };
+}
+
+test('previewing a queued guest opens a reduced-quality peer to that station only', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+
+  assert.deepEqual(hub.setPreview(dashboard, 'post-02'), { ok: true });
+
+  assert.deepEqual(stations['post-01'].sent, [{ type: 'feed_stop', peer: id }], 'the dashboard stops watching the air');
+  assert.deepEqual(stations['post-02'].sent, [{ type: 'feed_start', peer: id, quality: { max_kbps: 600, scale: 2 } }]);
+  assert.deepEqual(dashboard.sent, [
+    { type: 'preview_mode', station: 'post-02' },
+    { type: 'feed_target', station: 'post-02' }
+  ]);
+  assert.equal(hub.status().previews, 1);
+});
+
+test('a preview never touches the clean feed', () => {
+  const { hub, feed, dashboard } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  assert.deepEqual(feed.sent, [], 'the mixer output does not even hear about it');
+  assert.equal(hub.status().target, 'post-01');
+});
+
+test('a station being previewed may reach that dashboard, and nobody else', () => {
+  const { hub, stations, feed, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  dashboard.sent.length = 0;
+
+  assert.equal(hub.relayFromStation('post-02', { sdp: 'offerta' }, id), true);
+  assert.deepEqual(dashboard.sent.pop(), { type: 'rtc_signal', station: 'post-02', data: { sdp: 'offerta' } });
+
+  // The previewed station is still not on air: it can never reach the feed.
+  assert.equal(hub.relayFromStation('post-02', { sdp: 'x' }, 'feed'), false);
+  assert.equal(hub.relayToStation('post-02', { sdp: 'x' }, 'feed'), false);
+  assert.deepEqual(feed.sent, []);
+
+  // A third station cannot hijack the dashboard's preview channel.
+  assert.equal(hub.relayFromStation('post-03', { sdp: 'intruso' }, id), false);
+  assert.equal(hub.relayToStation('post-03', { sdp: 'intruso' }, id), false);
+
+  stations['post-02'].sent.length = 0;
+  assert.equal(hub.relayToStation('post-02', { sdp: 'risposta' }, id), true);
+  assert.deepEqual(stations['post-02'].sent.pop(), { type: 'rtc_signal', peer: id, data: { sdp: 'risposta' } });
+});
+
+test('putting the previewed guest on air keeps the same connection and follows the air', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  stations['post-02'].sent.length = 0;
+  dashboard.sent.length = 0;
+
+  hub.setTarget('post-02').catch(() => {});
+
+  assert.ok(
+    !stations['post-02'].sent.some((m) => m.peer === id),
+    'the preview is already connected to this station: no restart, no flicker'
+  );
+  assert.deepEqual(dashboard.sent, [{ type: 'preview_mode', station: null }]);
+  assert.equal(hub.status().previews, 0);
+});
+
+test('the air changing does not yank away a preview the operator chose', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-03');
+  for (const ws of Object.values(stations)) ws.sent.length = 0;
+  dashboard.sent.length = 0;
+
+  hub.setTarget('post-02').catch(() => {});
+
+  assert.ok(!stations['post-03'].sent.some((m) => m.peer === id), 'still watching post-03');
+  assert.ok(!stations['post-02'].sent.some((m) => m.peer === id), 'not pulled to the new air');
+  assert.ok(!dashboard.sent.some((m) => m.type === 'feed_target'));
+});
+
+test('closing the air does not stop a preview of another station', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  stations['post-02'].sent.length = 0;
+
+  hub.setTarget(null);
+
+  assert.deepEqual(stations['post-02'].sent, [], 'the guest in the queue is still visible after the close');
+});
+
+test('back to the air: the preview peer stops and the dashboard follows what is on air', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  for (const ws of Object.values(stations)) ws.sent.length = 0;
+  dashboard.sent.length = 0;
+
+  hub.setPreview(dashboard, null);
+
+  assert.deepEqual(stations['post-02'].sent, [{ type: 'feed_stop', peer: id }]);
+  assert.deepEqual(stations['post-01'].sent, [{ type: 'feed_start', peer: id, quality: { max_kbps: 600, scale: 2 } }]);
+  assert.deepEqual(dashboard.sent, [
+    { type: 'preview_mode', station: null },
+    { type: 'feed_target', station: 'post-01' }
+  ]);
+});
+
+test('previewing the station already on air is simply following the air', () => {
+  const { hub, stations, dashboard } = previewSetup();
+  assert.deepEqual(hub.setPreview(dashboard, 'post-01'), { ok: true });
+  assert.equal(hub.status().previews, 0);
+  assert.deepEqual(stations['post-01'].sent, [], 'nothing to renegotiate');
+});
+
+test('a preview of a station that is not connected says why it stays dark', () => {
+  const { hub, dashboard } = previewSetup();
+  const res = hub.setPreview(dashboard, 'post-09');
+  assert.equal(res.ok, false);
+  assert.match(res.reason, /non collegata/);
+});
+
+test('each dashboard previews on its own', () => {
+  const { hub, stations } = previewSetup();
+  const a = fakeSocket();
+  const b = fakeSocket();
+  const idA = hub.addMonitor(a);
+  const idB = hub.addMonitor(b);
+  hub.setPreview(a, 'post-02');
+  hub.setPreview(b, 'post-03');
+
+  assert.equal(hub.relayFromStation('post-02', { sdp: 'x' }, idA), true);
+  assert.equal(hub.relayFromStation('post-02', { sdp: 'x' }, idB), false, 'B is watching post-03, not post-02');
+  assert.equal(hub.status().previews, 2);
+});
+
+test('a previewed station that reconnects re-offers to its dashboard', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  stations['post-02'].sent.length = 0;
+
+  assert.equal(hub.restartMonitorsFor('post-02'), 1);
+  assert.deepEqual(stations['post-02'].sent, [{ type: 'feed_start', peer: id, quality: { max_kbps: 600, scale: 2 } }]);
+});
+
+test('a closed dashboard stops the peer on the station it was previewing', () => {
+  const { hub, stations, dashboard, id } = previewSetup();
+  hub.setPreview(dashboard, 'post-02');
+  stations['post-02'].sent.length = 0;
+
+  hub.removeMonitor(dashboard);
+  assert.deepEqual(stations['post-02'].sent, [{ type: 'feed_stop', peer: id }]);
 });

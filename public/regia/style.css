@@ -43,6 +43,7 @@ body { min-height: 100vh; }
 
 .empty { color: var(--muted); font-size: 14px; margin: 8px 0; }
 .empty.big { font-size: 18px; padding: 24px 0; text-align: center; }
+#live-none { margin: 0 0 4px; font-size: 13px; }
 
 .queue { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .queue li { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
@@ -59,6 +60,28 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
 
 /* On-air preview: its own low-quality peer, so it never touches the clean feed. */
 .preview-wrap { position: relative; margin-bottom: 12px; }
+/* What the box shows must never be ambiguous: red while it is the air, amber
+   while it is a preview that the mixer is NOT receiving. */
+.preview-wrap.previewing video { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.preview-tag {
+  position: absolute; top: 8px; left: 8px;
+  padding: 4px 9px; border-radius: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.08em;
+  background: rgba(0, 0, 0, 0.7);
+}
+.preview-tag.on-air { color: #fff; background: var(--red); }
+.preview-tag.preview { color: #1b1300; background: var(--amber); }
+.preview-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 15px; text-align: center; padding: 0 20px; pointer-events: none;
+}
+.preview-back {
+  position: absolute; top: 8px; right: 8px; padding: 5px 10px; font-size: 12px; font-weight: 700;
+  background: rgba(0, 0, 0, 0.7); border-color: rgba(255, 255, 255, 0.25);
+}
+.queue li.previewing, .card.previewing { box-shadow: 0 0 0 2px var(--amber) inset; }
+.queue .watch { padding: 8px 10px; font-size: 13px; }
+.card .actions .watch { flex: 0 0 auto; }
 .preview-wrap video {
   width: 100%;
   aspect-ratio: 16 / 9;

@@ -8,6 +8,11 @@
  * over WebRTC; this hub decides which station the feed page is showing and
  * relays the signalling between the two, over the WebSocket we already have.
  *
+ * Dashboards connect as monitors. A monitor either follows whatever is on air
+ * (the default) or previews one station the operator picked - typically a
+ * guest waiting in the queue, to check them before going on air. The clean
+ * feed never follows a preview: only the station on air may reach it.
+ *
  * No STUN, no TURN, no internet: peers are on the same LAN and exchange host
  * candidates only (rule §2.5).
  */
@@ -19,7 +24,8 @@ class FeedHub {
     // A preview must not cost the mini PC a second full-quality encode.
     this.monitorQuality = monitorQuality || { max_kbps: 600, scale: 2 };
     this.clients = new Set(); // clean feed receiver (one at a time)
-    this.monitors = new Map(); // preview receivers (dashboard), ws -> peer id
+    // Dashboards: ws -> { id, preview }. preview === null means "follow the air".
+    this.monitors = new Map();
     this.nextMonitorId = 1;
     this.target = null; // station id currently requested on the feed
     this.ready = false; // the feed page reported the stream is playing
@@ -31,7 +37,7 @@ class FeedHub {
 
   addClient(ws) {
     // One receiver at a time: there is a single clean output, and a station can
-    // only hold one peer connection. Last one wins, like stations do.
+    // only hold one peer connection per receiver. Last one wins, like stations.
     for (const other of [...this.clients]) {
       if (other !== ws) {
         this.clients.delete(other);
@@ -46,35 +52,82 @@ class FeedHub {
     this.onChange();
   }
 
+  // --- monitors (dashboard previews) -------------------------------------
+
+  /** The station a monitor is actually looking at right now. */
+  watching(entry) {
+    return entry.preview || this.target;
+  }
+
   /**
-   * Preview receivers (the dashboard). They get their own peer connection at
-   * reduced quality and are best effort: they never gate the open sequence,
-   * never set `ready`, and never raise a driver error.
+   * Preview receivers get their own peer connection at reduced quality and are
+   * best effort: they never gate the open sequence, never set `ready`, and never
+   * raise a driver error.
    */
   addMonitor(ws) {
-    const id = 'mon-' + this.nextMonitorId++;
-    this.monitors.set(ws, id);
+    const entry = { id: 'mon-' + this.nextMonitorId++, preview: null };
+    this.monitors.set(ws, entry);
+    this.send(ws, { type: 'preview_mode', station: null });
     this.send(ws, { type: 'feed_target', station: this.target });
-    if (this.target) this.startPeer(this.target, id, this.monitorQuality);
+    if (this.target) this.startPeer(this.target, entry.id, this.monitorQuality);
     this.onChange();
-    return id;
+    return entry.id;
   }
 
   removeMonitor(ws) {
-    const id = this.monitors.get(ws);
-    if (!id) return;
+    const entry = this.monitors.get(ws);
+    if (!entry) return;
     this.monitors.delete(ws);
-    if (this.target) {
-      const station = this.stationSocket(this.target);
-      if (station) this.send(station, { type: 'feed_stop', peer: id });
-    }
+    this.stopPeer(this.watching(entry), entry.id);
     this.onChange();
   }
 
-  monitorSocket(id) {
-    for (const [ws, peer] of this.monitors) if (peer === id) return ws;
+  /**
+   * Points one monitor at a station (preview) or back at the air (null).
+   * Returns false when the station is not connected, so the dashboard can say
+   * why the preview stays dark.
+   */
+  setPreview(ws, stationId) {
+    const entry = this.monitors.get(ws);
+    if (!entry) return { ok: false, reason: 'monitor sconosciuto' };
+
+    const before = this.watching(entry);
+    entry.preview = stationId || null;
+    // Previewing the station already on air is the same as following the air.
+    if (entry.preview && entry.preview === this.target) entry.preview = null;
+    const after = this.watching(entry);
+
+    this.send(ws, { type: 'preview_mode', station: entry.preview });
+    if (before === after) return { ok: true };
+
+    this.stopPeer(before, entry.id);
+    this.send(ws, { type: 'feed_target', station: after });
+    this.log.event('preview', { monitor: entry.id, station: entry.preview });
+
+    if (!after) return { ok: true };
+    if (!this.startPeer(after, entry.id, this.monitorQuality)) {
+      return { ok: false, reason: `poltrona ${after} non collegata` };
+    }
+    return { ok: true };
+  }
+
+  /** A station that reconnects, or whose camera comes back, re-offers to its previews. */
+  restartMonitorsFor(stationId) {
+    let restarted = 0;
+    for (const [ws, entry] of this.monitors) {
+      if (this.watching(entry) !== stationId) continue;
+      this.send(ws, { type: 'feed_target', station: stationId });
+      if (this.startPeer(stationId, entry.id, this.monitorQuality)) restarted++;
+    }
+    return restarted;
+  }
+
+  monitorEntryByPeer(peerId) {
+    for (const [ws, entry] of this.monitors) if (entry.id === peerId) return { ws, entry };
     return null;
   }
+
+  // --- peers -------------------------------------------------------------
 
   startPeer(stationId, peer, quality) {
     const station = this.stationSocket(stationId);
@@ -83,11 +136,10 @@ class FeedHub {
     return true;
   }
 
-  stopAllPeers(stationId) {
+  stopPeer(stationId, peer) {
+    if (!stationId) return;
     const station = this.stationSocket(stationId);
-    if (!station) return;
-    this.send(station, { type: 'feed_stop', peer: 'feed' });
-    for (const id of this.monitors.values()) this.send(station, { type: 'feed_stop', peer: id });
+    if (station) this.send(station, { type: 'feed_stop', peer });
   }
 
   /**
@@ -125,14 +177,13 @@ class FeedHub {
     for (const ws of this.clients) this.send(ws, payload);
   }
 
-  broadcastToMonitors(payload) {
-    for (const ws of this.monitors.keys()) this.send(ws, payload);
-  }
-
   status() {
+    let previews = 0;
+    for (const entry of this.monitors.values()) if (entry.preview) previews++;
     return {
       receivers: this.clients.size,
       monitors: this.monitors.size,
+      previews,
       target: this.target,
       ready: this.ready,
       audio_blocked: this.audioBlocked
@@ -147,6 +198,8 @@ class FeedHub {
     return true;
   }
 
+  // --- the air -----------------------------------------------------------
+
   /**
    * Points the feed at a station (or to black), and resolves once the feed page
    * reports the stream is actually playing. Rejects on timeout or when nothing
@@ -158,26 +211,36 @@ class FeedHub {
     this.target = stationId;
     this.ready = false;
 
-    if (previous && previous !== stationId) this.stopAllPeers(previous);
-
+    if (previous && previous !== stationId) this.stopPeer(previous, 'feed');
     this.broadcastToFeed({ type: 'feed_target', station: stationId });
-    this.broadcastToMonitors({ type: 'feed_target', station: stationId });
+
+    const stationWs = stationId ? this.stationSocket(stationId) : null;
+
+    for (const [ws, entry] of this.monitors) {
+      if (entry.preview) {
+        // The operator was previewing exactly this guest and put them on air:
+        // the preview simply becomes "follow the air", nothing to renegotiate.
+        if (entry.preview === stationId) {
+          entry.preview = null;
+          this.send(ws, { type: 'preview_mode', station: null });
+        }
+        // Any other preview is the operator's choice: the air changing does
+        // not yank it away.
+        continue;
+      }
+      // Following the air: move to the new station. Previews are independent
+      // of the clean feed, so they start even while /feed/ is not open - the
+      // usual situation during setup - and before anything below can reject.
+      if (previous && previous !== stationId) this.stopPeer(previous, entry.id);
+      this.send(ws, { type: 'feed_target', station: stationId });
+      if (stationWs && previous !== stationId) this.startPeer(stationId, entry.id, this.monitorQuality);
+    }
     this.onChange();
 
     if (stationId === null) {
       // Black is reached by stopping: nothing to wait for.
       return Promise.resolve();
     }
-
-    const stationWs = this.stationSocket(stationId);
-
-    // Previews are independent of the clean feed: the dashboard must show what
-    // is on air even while /feed/ is not open yet, which is exactly the case
-    // during setup. Start them before anything can reject.
-    if (stationWs) {
-      for (const id of this.monitors.values()) this.startPeer(stationId, id, this.monitorQuality);
-    }
-
     if (this.clients.size === 0) {
       return Promise.reject(new Error('nessun ricevitore feed collegato (/feed/)'));
     }
@@ -224,25 +287,36 @@ class FeedHub {
     this.log.event('feed_error', { station: stationId, message });
   }
 
-  /** Station -> receiver signalling. Only the station on air may reach them. */
+  // --- signalling --------------------------------------------------------
+
+  /**
+   * Station -> receiver signalling. The clean feed only ever talks to the
+   * station on air; a monitor only to the station it is watching.
+   */
   relayFromStation(stationId, data, peer) {
-    if (stationId !== this.target) return false;
     if (!peer || peer === 'feed') {
+      if (stationId !== this.target) return false;
       this.broadcastToFeed({ type: 'rtc_signal', station: stationId, data });
       return true;
     }
-    const ws = this.monitorSocket(peer);
-    if (!ws) return false;
-    this.send(ws, { type: 'rtc_signal', station: stationId, data });
+    const found = this.monitorEntryByPeer(peer);
+    if (!found || this.watching(found.entry) !== stationId) return false;
+    this.send(found.ws, { type: 'rtc_signal', station: stationId, data });
     return true;
   }
 
-  /** Receiver -> station signalling. `peer` identifies which connection. */
+  /** Receiver -> station signalling, with the same pairing rules. */
   relayToStation(stationId, data, peer) {
-    if (stationId !== this.target) return false;
+    const peerId = peer || 'feed';
+    if (peerId === 'feed') {
+      if (stationId !== this.target) return false;
+    } else {
+      const found = this.monitorEntryByPeer(peerId);
+      if (!found || this.watching(found.entry) !== stationId) return false;
+    }
     const ws = this.stationSocket(stationId);
     if (!ws) return false;
-    this.send(ws, { type: 'rtc_signal', peer: peer || 'feed', data });
+    this.send(ws, { type: 'rtc_signal', peer: peerId, data });
     return true;
   }
 }

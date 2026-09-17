@@ -442,6 +442,7 @@ function handleHello(ws, msg) {
     log.event('station_online', { station: st.id });
     // A kiosk reloaded during its own intervention must resume publishing.
     if (feedHub.target === st.id) feedHub.restartPublishing('poltrona riconnessa');
+    feedHub.restartMonitorsFor(st.id);
     broadcast();
     return;
   }
@@ -523,6 +524,7 @@ function handleStationMessage(ws, msg) {
         if (msg.ok && feedHub.target === id && !feedHub.ready) {
           feedHub.restartPublishing('webcam disponibile');
         }
+        if (msg.ok) feedHub.restartMonitorsFor(id);
         broadcast();
       }
       return;
@@ -560,11 +562,21 @@ function handleFeedMessage(ws, msg) {
 }
 
 function handleMonitorMessage(ws, msg) {
-  if (msg.type !== 'rtc_signal') {
-    return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
+  if (msg.type === 'rtc_signal') {
+    // A preview that fails is a preview problem: it never raises a driver error.
+    feedHub.relayToStation(msg.station, msg.data, ws.monitorId);
+    return;
   }
-  // A preview that fails is a preview problem: it never raises a driver error.
-  feedHub.relayToStation(msg.station, msg.data, ws.monitorId);
+  if (msg.type === 'preview') {
+    // Look at one station before putting it on air, or (null) back at the air.
+    const id = msg.station || null;
+    if (id && !studio.get(id)) return sendError(ws, 'unknown_station', `Poltrona sconosciuta: ${id}`);
+    const res = feedHub.setPreview(ws, id);
+    if (!res.ok) sendError(ws, 'preview_unavailable', res.reason);
+    broadcast();
+    return;
+  }
+  return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
 }
 
 function handleControlMessage(ws, msg) {

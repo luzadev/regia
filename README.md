@@ -122,6 +122,25 @@ Come funziona:
 Niente STUN, niente TURN: i peer sono nella stessa LAN e si scambiano solo candidati host,
 quindi nessun traffico esce dalla rete (regola §2.5).
 
+### Guardare un ospite prima di mandarlo in onda
+
+Su ogni riga della **coda** e su ogni **scheda poltrona** c'è «Guarda». Il riquadro video della
+regia passa a quella poltrona, con l'etichetta ambra **ANTEPRIMA · NON IN ONDA** e il bordo
+ambra: il mixer non riceve niente, la poltrona resta in coda. Serve a controllare l'ospite
+prima di dargli la parola — è inquadrato, è seduto, il microfono è quello giusto (usa
+**AUDIO ON** per ascoltarlo).
+
+- «**Torna all'onda**» riporta il riquadro su chi è in onda (etichetta rossa **IN ONDA**).
+- Se autorizzi proprio la poltrona che stavi guardando, il riquadro diventa **IN ONDA** senza
+  interrompere il video.
+- Se nel frattempo l'onda cambia su un'altra poltrona, la tua anteprima **non viene toccata**:
+  l'hai scelta tu.
+- Ogni postazione di regia sceglie per conto suo cosa guardare.
+
+La poltrona in anteprima non può mai raggiungere il feed pulito: il server collega al feed
+solo la poltrona in onda, e a ogni dashboard solo la poltrona che quella dashboard sta
+guardando.
+
 ### Anteprima in dashboard
 
 La dashboard mostra in alto al pannello "in onda" **cosa sta uscendo davvero**, con un pulsante

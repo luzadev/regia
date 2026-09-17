@@ -56,6 +56,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   sim.js              # simulatore poltrone (npm run sim)
 /test
   state.test.js       # test della macchina a stati (node --test)
+  integration.feed.test.js  # server vero + client di protocollo: ordine rigido, regole di accoppiamento, anteprima
 config.json
 config.example.json
 package.json
@@ -136,7 +137,7 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 
 Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed"|"monitor", "station": "post-01", "token": "..." }`.
 
-Il ruolo `feed` è il **feed pulito verso il mixer**: uno solo alla volta (vince l'ultimo, il precedente viene chiuso con codice `4000`). Il ruolo `monitor` è un'**anteprima** (la dashboard): quante se ne vuole, ognuna con la propria connessione WebRTC a qualità ridotta. Un'anteprima non conferma mai l'andata in onda, non genera errori driver e non scalza il feed pulito. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso con codice `4000`): un kiosk ricaricato non resta bloccato. Il client scalzato **non deve riconnettersi** — altrimenti le due finestre si scalzano a vicenda all'infinito — ma mostrare la view "POLTRONA APERTA ALTROVE" finché non viene ricaricato.
+Il ruolo `feed` è il **feed pulito verso il mixer**: uno solo alla volta (vince l'ultimo, il precedente viene chiuso con codice `4000`). Il ruolo `monitor` è un'**anteprima** (la dashboard): quante se ne vuole, ognuna con la propria connessione WebRTC a qualità ridotta. Un'anteprima non conferma mai l'andata in onda, non genera errori driver e non scalza il feed pulito. Di default **segue l'onda**; con `preview` l'operatore può invece guardare **una poltrona scelta** (tipicamente un ospite in coda) senza mandarla in onda. Ogni dashboard sceglie per conto suo. Se la poltrona in anteprima viene autorizzata, l'anteprima torna a seguire l'onda senza rinegoziare; se l'onda cambia su un'altra poltrona, un'anteprima scelta dall'operatore non viene toccata. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso con codice `4000`): un kiosk ricaricato non resta bloccato. Il client scalzato **non deve riconnettersi** — altrimenti le due finestre si scalzano a vicenda all'infinito — ma mostrare la view "POLTRONA APERTA ALTROVE" finché non viene ricaricato.
 
 ```
 station → server : { "type": "request_floor" }
@@ -171,10 +172,12 @@ server → station : { "type": "feed_stop", "peer": "feed"|"mon-1" }
 server → feed    : { "type": "feed_target", "station": "post-03"|null }
 feed   → server  : { "type": "feed_ready", "station": "post-03" }
 feed   → server  : { "type": "feed_error", "station": "post-03", "message": "..." }
+monitor → server : { "type": "preview", "station": "post-03"|null }   // null = torna a seguire l'onda
+server → monitor : { "type": "preview_mode", "station": "post-03"|null }
 station ↔ server ↔ feed/monitor : { "type": "rtc_signal", "peer": "feed"|"mon-1", "station": "post-03", "data": { sdp | candidate } }
 ```
 
-Il server fa da solo relay del signalling, e **solo per la poltrona attualmente puntata dal feed**: una poltrona non in onda non può aprire un canale verso il feed.
+Il server fa da solo relay del signalling con regole di accoppiamento precise: il **feed pulito** parla solo con la poltrona in onda, e una poltrona non in onda non può mai raggiungerlo; ogni **monitor** parla solo con la poltrona che sta guardando (l'onda, oppure quella scelta in anteprima), e nessun'altra può aprire un canale verso di lui.
 
 Il `+/- 30 s` è sempre `countdown_adjust` gestito dal server (mai un ricalcolo del client), così due click ravvicinati non si sovrascrivono.
 
@@ -187,7 +190,7 @@ Schema di `state_sync`:
   "manual_mode": false,
   "live": "post-03",
   "drivers": { "video": { "status": "ok" }, "lights": { "status": "error", "message": "..." } },
-  "feed": { "receivers": 1, "monitors": 1, "target": "post-03", "ready": true, "audio_blocked": false },
+  "feed": { "receivers": 1, "monitors": 1, "previews": 0, "target": "post-03", "ready": true, "audio_blocked": false },
   "stations": [
     { "id": "post-01", "label": "Poltrona 1", "name": "Rossi", "state": "REQUESTED",
       "connected": true, "requested_at": 1709999990000, "live_since": null,
@@ -211,7 +214,7 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 
 **Feed pulito** (`/feed/`): pagina nera a riposo, mostra in fullscreen la poltrona autorizzata con il suo audio. Nessun testo, nessun overlay (con `?debug=1` una riga di stato per il collaudo). Va aperta in Chromium kiosk sulla seconda uscita HDMI del PC di regia, quella collegata al mixer.
 
-**Dashboard regia** (`/regia/`): anteprima video della poltrona in onda (connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio), colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
+**Dashboard regia** (`/regia/`): riquadro video sempre visibile — segue la poltrona in onda (etichetta rossa **IN ONDA**) oppure, con «Guarda» su una riga della coda o su una scheda, mostra quella poltrona **prima** di autorizzarla (etichetta ambra **ANTEPRIMA · NON IN ONDA** e pulsante «Torna all'onda»); connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio, che serve proprio a controllare il microfono di chi aspetta; colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
 
 **Modalità manuale**: il server smette di comandare video e luci (coda, stati e display continuano a funzionare). Alla riattivazione il server **risincronizza subito** i driver con lo stato corrente.
 

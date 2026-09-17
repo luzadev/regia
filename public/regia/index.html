@@ -42,12 +42,15 @@
 
   <section class="panel live-panel">
     <h2>In onda</h2>
-    <div id="live-none" class="empty big">Nessuna poltrona in onda</div>
+    <div class="preview-wrap" id="preview-wrap">
+      <video id="preview" autoplay playsinline muted></video>
+      <div id="preview-tag" class="preview-tag on-air">IN ONDA</div>
+      <div id="preview-empty" class="preview-empty">Nessuna poltrona in onda</div>
+      <button id="preview-back" class="preview-back" type="button" hidden>Torna all'onda</button>
+      <button id="preview-audio" class="preview-audio" type="button" title="Ascolta l'audio della poltrona che stai guardando">AUDIO OFF</button>
+    </div>
+    <div id="live-none" class="empty">Scegli «Guarda» su una poltrona per vederla prima di mandarla in onda.</div>
     <div id="live-box" hidden>
-      <div class="preview-wrap">
-        <video id="preview" autoplay playsinline muted></video>
-        <button id="preview-audio" class="preview-audio" title="Ascolta l'audio della poltrona in onda">AUDIO OFF</button>
-      </div>
       <div class="live-label" id="live-label"></div>
       <div class="live-name" id="live-name"></div>
       <div class="live-caption" id="live-caption">TEMPO RESIDUO</div>

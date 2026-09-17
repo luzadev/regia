@@ -37,14 +37,36 @@
   // The preview is a second connection with its own role: the clean feed keeps
   // its single receiver, and a preview problem never touches what is on air.
   var previewVideo = document.getElementById('preview');
+  // The station this dashboard is previewing, or null while it follows the air.
+  var previewing = null;
+
   var previewBridge = new Bridge({
     role: 'monitor',
     onMessage: function (msg) {
+      if (msg.type === 'preview_mode') {
+        previewing = msg.station || null;
+        render();
+        return;
+      }
       preview.handle(msg);
     },
     onLink: function (up) {
-      if (!up) preview.setTarget(null);
-    }
+      if (!up) {
+        preview.setTarget(null);
+        // A reconnected monitor starts by following the air again.
+        previewing = null;
+      }
+      render();
+    },
+    onError: toast
+  });
+
+  function watch(stationId) {
+    previewBridge.send({ type: 'preview', station: stationId });
+  }
+
+  document.getElementById('preview-back').addEventListener('click', function () {
+    watch(null);
   });
   var preview = new FeedReceiver(previewBridge, previewVideo, { preview: true });
 
@@ -169,6 +191,41 @@
     renderQueue(snap);
     renderLive();
     renderGrid(snap);
+    renderPreviewFrame(snap);
+  }
+
+  /** Makes it impossible to mistake a preview for what the mixer is receiving. */
+  function renderPreviewFrame(snap) {
+    var wrap = document.getElementById('preview-wrap');
+    var tag = document.getElementById('preview-tag');
+    var empty = document.getElementById('preview-empty');
+    var back = document.getElementById('preview-back');
+    var watched = previewing ? bridge.stationOf(previewing) : liveStation();
+
+    wrap.classList.toggle('previewing', !!previewing);
+    back.hidden = !previewing;
+
+    if (previewing) {
+      tag.className = 'preview-tag preview';
+      tag.textContent = 'ANTEPRIMA · ' + (watched ? watched.name || watched.label : previewing) + ' · NON IN ONDA';
+    } else {
+      tag.className = 'preview-tag on-air';
+      tag.textContent = watched ? 'IN ONDA · ' + (watched.name || watched.label) : 'IN ONDA';
+    }
+
+    if (!watched) {
+      empty.hidden = false;
+      empty.textContent = previewing ? 'Poltrona non disponibile' : 'Nessuna poltrona in onda';
+    } else if (!watched.connected) {
+      empty.hidden = false;
+      empty.textContent = (watched.name || watched.label) + ' non è collegata';
+    } else if (watched.media && watched.media.ok === false) {
+      empty.hidden = false;
+      empty.textContent = 'Webcam non disponibile su ' + (watched.name || watched.label);
+    } else {
+      empty.hidden = true;
+    }
+    tag.hidden = !watched && !previewing;
   }
 
   function renderQueue(snap) {
@@ -201,6 +258,16 @@
       wait.dataset.since = s.requested_at;
       wait.textContent = formatClock((bridge.serverNow() - s.requested_at) / 1000);
 
+      var look = document.createElement('button');
+      look.className = 'watch';
+      look.textContent = previewing === s.id ? 'In anteprima' : 'Guarda';
+      look.disabled = previewing === s.id;
+      look.title = 'Vedi questo ospite prima di mandarlo in onda';
+      look.addEventListener('click', function () {
+        watch(s.id);
+      });
+      if (previewing === s.id) li.classList.add('previewing');
+
       var grant = document.createElement('button');
       grant.className = 'primary';
       grant.textContent = 'Autorizza';
@@ -217,6 +284,7 @@
       li.appendChild(pos);
       li.appendChild(who);
       li.appendChild(wait);
+      li.appendChild(look);
       li.appendChild(grant);
       li.appendChild(deny);
       el.queue.appendChild(li);
@@ -226,7 +294,7 @@
   function renderLive() {
     var live = liveStation();
     el.liveBox.hidden = !live;
-    el.liveNone.hidden = !!live;
+    el.liveNone.hidden = !!live || !!previewing;
     if (!live) return;
 
     el.liveLabel.textContent = live.label;
@@ -295,6 +363,11 @@
       if (document.activeElement !== card.name) card.name.value = s.name || '';
 
       var isLive = s.state === 'LIVE';
+      card.root.classList.toggle('previewing', previewing === s.id);
+      // Nothing to preview on the station already on air: the box shows it.
+      card.look.hidden = isLive;
+      card.look.disabled = previewing === s.id || !s.connected;
+      card.look.textContent = previewing === s.id ? 'In anteprima' : 'Guarda';
       card.go.hidden = isLive;
       card.go.disabled = false;
       card.go.textContent = s.state === 'REQUESTED' ? 'Autorizza' : 'Forza in onda';
@@ -377,12 +450,20 @@
     go.addEventListener('click', function () {
       bridge.send({ type: 'grant', station: s.id, countdown_s: grantCountdown() });
     });
+    var look = document.createElement('button');
+    look.className = 'watch';
+    look.title = 'Vedi questa poltrona prima di mandarla in onda';
+    look.addEventListener('click', function () {
+      watch(s.id);
+    });
+
     var stop = document.createElement('button');
     stop.className = 'danger';
     stop.textContent = 'Chiudi';
     stop.addEventListener('click', function () {
       bridge.send({ type: 'close', station: s.id });
     });
+    actions.appendChild(look);
     actions.appendChild(go);
     actions.appendChild(stop);
 
@@ -393,7 +474,7 @@
     root.appendChild(remove);
     el.grid.appendChild(root);
 
-    cards[s.id] = { root: root, state: state, link: link, cam: cam, name: name, go: go, stop: stop };
+    cards[s.id] = { root: root, state: state, link: link, cam: cam, name: name, look: look, go: go, stop: stop };
     return cards[s.id];
   }
 
