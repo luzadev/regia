@@ -863,6 +863,21 @@ app.post('/api/countdown/:seconds', apiAuth, (req, res) => {
 
 app.get('/api/state', apiAuth, (_req, res) => res.json(studio.snapshot(driverStatus, feedHub.status())));
 
+// Camera diagnostics run on a station computer: the result lands in the event
+// log, so it can be read in the control room without copying anything around.
+app.post('/api/diagnostics', (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  log.event('diagnostics', {
+    from: req.ip,
+    host: typeof body.host === 'string' ? body.host.slice(0, 100) : null,
+    user_agent: typeof body.userAgent === 'string' ? body.userAgent.slice(0, 300) : null,
+    platform: typeof body.platform === 'string' ? body.platform.slice(0, 50) : null,
+    items: body.items && typeof body.items === 'object' ? body.items : null
+  });
+  console.log(`[diagnostica] risultato ricevuto da ${req.ip}`);
+  res.json({ ok: true });
+});
+
 app.get('/api/log', apiAuth, (req, res) => {
   const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
   res.json(readLog(log.path, limit));

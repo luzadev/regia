@@ -216,8 +216,39 @@ sospensione) non sono controlli standard: passano da un'unità di estensione UVC
 produttore. Su Linux quei progetti le comandano con gli ioctl del driver `uvcvideo`, anche
 mentre la telecamera trasmette. Dal browser non si raggiungono su nessun sistema.
 
-La verifica che distingue i due casi va fatta **sul mini PC**. Su Linux basta un comando,
-senza browser:
+**Le poltrone usano Windows.** Chrome su Windows comanda i movimenti standard delle webcam
+USB, quindi il limite visto su macOS non dovrebbe valere lì. Si verifica con la pagina di
+diagnostica (sotto). Le funzioni proprie di OBSBOT si impostano con OBSBOT Center, una volta
+in allestimento, verificando che restino salvate nella telecamera.
+
+### Diagnostica telecamera
+
+Sul computer della poltrona, con la telecamera collegata, apri in Chrome:
+
+```
+https://<ip-server>:8080/diagnostica/
+```
+
+(link anche da «Impostazioni» in regia). Clicca **Consenti** alla richiesta di Chrome; la pagina
+controlla da sola:
+
+- connessione sicura (senza HTTPS webcam e microfono sono bloccati);
+- telecamera e microfono trovati con i nomi di `webrtc_video_device` / `webrtc_audio_device`;
+- risoluzioni che la telecamera consegna davvero;
+- **pan, tilt e zoom dal browser**: se ci sono, la telecamera si muove per qualche secondo e
+  torna in posizione, poi compaiono i pulsanti per provarla a mano.
+
+Il risultato viene **inviato al server** e finisce nel registro eventi come `diagnostics`,
+quindi si legge dalla regia senza copiare niente:
+
+```bash
+grep '"diagnostics"' data/events.jsonl | tail -1
+```
+
+Esito sul Mac di sviluppo (17/9/2026): telecamera e microfono OBSBOT trovati, fino a 4K30 e
+1080p60, **PTZ assente** — atteso, è il limite di Chrome su macOS.
+
+Per un mini PC **Linux** la stessa verifica si fa anche senza browser:
 
 ```bash
 v4l2-ctl -d /dev/video0 --list-ctrls | grep -Ei 'pan|tilt|zoom'

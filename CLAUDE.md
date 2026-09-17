@@ -51,6 +51,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   regia/              # dashboard: /regia/
   impostazioni/       # configurazione luci e relè: /impostazioni/
   feed/               # feed pulito verso il mixer: /feed/ (Chromium kiosk su HDMI 2)
+  diagnostica/        # prova telecamera sul computer della poltrona: dispositivi, risoluzioni, PTZ
   shared/             # css comune, client ws con riconnessione, WebRTC
 /scripts
   sim.js              # simulatore poltrone (npm run sim)
@@ -217,6 +218,8 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 **Dashboard regia** (`/regia/`): riquadro video sempre visibile — segue la poltrona in onda (etichetta rossa **IN ONDA**) oppure, con «Guarda» su una riga della coda o su una scheda, mostra quella poltrona **prima** di autorizzarla (etichetta ambra **ANTEPRIMA · NON IN ONDA** e pulsante «Torna all'onda»); connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio, che serve proprio a controllare il microfono di chi aspetta; colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
 
 **Modalità manuale**: il server smette di comandare video e luci (coda, stati e display continuano a funzionare). Alla riattivazione il server **risincronizza subito** i driver con lo stato corrente.
+
+**Diagnostica telecamera** (`/diagnostica/`): da aprire sul computer della poltrona (Windows). Verifica contesto sicuro, telecamera e microfono per nome, risoluzioni reali e pan/tilt/zoom dal browser, e invia il risultato a `POST /api/diagnostics`, che lo scrive nel log eventi (`type: "diagnostics"`).
 
 **Endpoint HTTP di servizio** (per Stream Deck, M4): `POST /api/grant-next`, `POST /api/close`, `POST /api/countdown/:seconds`. Senza parametro `station` agiscono sulla poltrona attualmente LIVE. Stessa logica dei messaggi WS.
 

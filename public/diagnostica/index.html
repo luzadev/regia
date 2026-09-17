@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostica telecamera</title>
+<link rel="stylesheet" href="/shared/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="diag">
+  <header>
+    <h1>DIAGNOSTICA TELECAMERA</h1>
+    <p class="sub">Da aprire sul computer della poltrona, con la telecamera collegata.</p>
+  </header>
+
+  <div id="ask" class="ask">
+    Chrome sta per chiedere il permesso: clicca <b>Consenti</b>. Se la richiesta dice
+    «usare e <b>spostare</b> la fotocamera», è già una buona notizia.
+  </div>
+
+  <div class="grid">
+    <video id="video" autoplay muted playsinline></video>
+    <ul id="checks" class="checks"></ul>
+  </div>
+
+  <section class="pad" id="pad" hidden>
+    <h2>Prova a mano</h2>
+    <div class="buttons">
+      <button data-k="pan" data-d="-1">← sinistra</button>
+      <button data-k="pan" data-d="1">destra →</button>
+      <button data-k="tilt" data-d="1">↑ su</button>
+      <button data-k="tilt" data-d="-1">↓ giù</button>
+      <button data-k="zoom" data-d="1">zoom +</button>
+      <button data-k="zoom" data-d="-1">zoom −</button>
+    </div>
+  </section>
+
+  <p id="sent" class="sent"></p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
