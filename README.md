@@ -191,11 +191,31 @@ default resta 1280×720@30; per passare a 1080p, prova sulla macchina della polt
 `webrtc_constraints.video` a 1920×1080 e controlla `qualityLimitationReason` (vedi *Qualità
 del video*): se dice `cpu`, torna a 720p oppure prova `"webrtc_codec": "H264"`.
 
-**Comandi PTZ (pan, tilt, zoom) dal browser: non ancora verificati.** Chrome li espone solo
-se la pagina li chiede esplicitamente e ottiene un permesso apposito. Nella prova su macOS
-con Chrome headless non sono comparsi, ma il permesso PTZ risultava ancora «da chiedere»: la
-prova è inconcludente, non negativa. Va ripetuta sul mini PC della poltrona, con una finestra
-vera in cui si risponde *Consenti* anche alla richiesta di muovere la telecamera.
+**Comandi PTZ (pan, tilt, zoom) dal browser: su macOS no, sul mini PC da verificare.**
+Prova del 17/9/2026 con finestra Chrome vera (Chrome 153, macOS) e permesso della fotocamera
+concesso: Chrome non espone né pan, né tilt, né zoom, e non chiede nemmeno il permesso di
+«spostare la fotocamera» (resta su «da chiedere»). Chrome fa quella richiesta solo quando
+riconosce una telecamera PTZ: quindi su questo Mac non la riconosce.
+
+Le cause possibili sono due, e decidono se il PTZ dal browser ha futuro:
+
+1. un limite di Chrome su macOS — allora su Windows o Linux può funzionare;
+2. la telecamera muove il gimbal con comandi proprietari invece dei controlli UVC standard,
+   e li usa solo l'app o l'SDK di OBSBOT — allora dal browser non funzionerà su nessun sistema.
+
+La verifica che distingue i due casi va fatta **sul mini PC**. Su Linux basta un comando,
+senza browser:
+
+```bash
+v4l2-ctl -d /dev/video0 --list-ctrls | grep -Ei 'pan|tilt|zoom'
+```
+
+Se compaiono `pan_absolute`, `tilt_absolute`, `zoom_absolute` siamo nel caso 1; se non
+compaiono, nel caso 2. Su Windows si ripete la prova con la stessa pagina in Chrome.
+
+Nel caso 2 l'unica strada sarebbe un programma sulle poltrone che usa l'SDK di OBSBOT, cioè il
+software di terze parti che si voleva evitare: in quel caso conviene impostare l'inquadratura
+una volta e lasciarla fissa, che per ospiti seduti è comunque la scelta giusta.
 
 **Inquadratura automatica, gesti e le altre funzioni dell'app** si impostano con OBSBOT
 Center. Da verificare se le impostazioni restano memorizzate nella telecamera dopo averla
