@@ -192,7 +192,9 @@ button.wide { width: 100%; padding: 14px; font-size: 16px; letter-spacing: 0.06e
 }
 .card .actions { display: flex; gap: 6px; }
 .card .actions button { flex: 1; padding: 8px; font-size: 13px; }
-.card .badges { display: flex; gap: 4px; flex: 0 0 auto; }
+/* Up to four badges (state, link, cam, ptz): they must wrap inside the card,
+   never run past its edge - a clipped "CAM" reads as a different word. */
+.card .badges { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 100%; min-width: 0; }
 
 .toast {
   position: fixed;
