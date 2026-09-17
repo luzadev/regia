@@ -203,6 +203,19 @@ Le cause possibili sono due, e decidono se il PTZ dal browser ha futuro:
 2. la telecamera muove il gimbal con comandi proprietari invece dei controlli UVC standard,
    e li usa solo l'app o l'SDK di OBSBOT — allora dal browser non funzionerà su nessun sistema.
 
+**Indizio forte a favore del caso 1** (settembre 2026): nei progetti Linux per la Tiny 2
+(`cgevans/tiny2`, `OpenFoxes/Tiny4Linux`) pan, tilt e zoom sono i **controlli V4L2 standard**
+(`V4L2_CID_PAN_ABSOLUTE`, `TILT_ABSOLUTE`, `ZOOM_ABSOLUTE`), e il manutentore conferma che
+sulla Tiny 2 «i movimenti funzionano normalmente con v4l2, senza software aggiuntivo». Se vale
+anche per la Lite, sul Mac il limite è di Chrome su macOS, e su un mini PC Linux il PTZ dal
+browser dovrebbe funzionare. **Per la Lite non c'è ancora conferma**: nessuno dei progetti la
+cita nel codice, e l'unica segnalazione di un utente Lite sui movimenti è rimasta senza seguito.
+
+Le funzioni **proprie di OBSBOT** (inquadratura automatica AI, HDR, campo visivo, LED,
+sospensione) non sono controlli standard: passano da un'unità di estensione UVC del
+produttore. Su Linux quei progetti le comandano con gli ioctl del driver `uvcvideo`, anche
+mentre la telecamera trasmette. Dal browser non si raggiungono su nessun sistema.
+
 La verifica che distingue i due casi va fatta **sul mini PC**. Su Linux basta un comando,
 senza browser:
 
