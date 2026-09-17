@@ -172,10 +172,15 @@ default resta 1280×720@30; per passare a 1080p, prova sulla macchina della polt
 `webrtc_constraints.video` a 1920×1080 e controlla `qualityLimitationReason` (vedi *Qualità
 del video*): se dice `cpu`, torna a 720p oppure prova `"webrtc_codec": "H264"`.
 
-**Inquadratura automatica e gimbal** non sono comandabili dal browser: Chrome non espone
-pan, tilt né zoom per questo modello. Si impostano con l'app OBSBOT Center. Da verificare
-sull'hardware se l'impostazione resta memorizzata nella telecamera dopo averla scollegata:
-se sì, l'app serve solo una volta in fase di allestimento e non deve girare sulle poltrone.
+**Comandi PTZ (pan, tilt, zoom) dal browser: non ancora verificati.** Chrome li espone solo
+se la pagina li chiede esplicitamente e ottiene un permesso apposito. Nella prova su macOS
+con Chrome headless non sono comparsi, ma il permesso PTZ risultava ancora «da chiedere»: la
+prova è inconcludente, non negativa. Va ripetuta sul mini PC della poltrona, con una finestra
+vera in cui si risponde *Consenti* anche alla richiesta di muovere la telecamera.
+
+**Inquadratura automatica, gesti e le altre funzioni dell'app** si impostano con OBSBOT
+Center. Da verificare se le impostazioni restano memorizzate nella telecamera dopo averla
+scollegata: se sì, l'app serve solo in allestimento e non deve girare sulle poltrone.
 
 ### La pagina /feed/ sul PC di regia
 
