@@ -49,6 +49,25 @@
       <button id="preview-back" class="preview-back" type="button" hidden>Torna all'onda</button>
       <button id="preview-audio" class="preview-audio" type="button" title="Ascolta l'audio della poltrona che stai guardando">AUDIO OFF</button>
     </div>
+    <!-- Camera controls: only while previewing a station that is NOT on air. -->
+    <div id="camera-bar" class="camera-bar" hidden>
+      <div class="cam-pad" aria-label="Muovi la telecamera">
+        <span></span><button type="button" data-dp="2" data-dy="0" title="Su">▲</button><span></span>
+        <button type="button" data-dp="0" data-dy="3" title="Sinistra">◀</button>
+        <button type="button" id="cam-recall" title="Torna all'inquadratura salvata">⟲</button>
+        <button type="button" data-dp="0" data-dy="-3" title="Destra">▶</button>
+        <span></span><button type="button" data-dp="-2" data-dy="0" title="Giù">▼</button><span></span>
+      </div>
+      <div class="cam-side">
+        <div class="cam-zoom">
+          <button type="button" data-dz="-0.2" title="Allarga">−</button>
+          <span>zoom</span>
+          <button type="button" data-dz="0.2" title="Stringi">+</button>
+        </div>
+        <button type="button" id="cam-save" class="primary">Salva inquadratura</button>
+        <div id="cam-info" class="cam-info"></div>
+      </div>
+    </div>
     <div id="live-none" class="empty">Scegli «Guarda» su una poltrona per vederla prima di mandarla in onda.</div>
     <div id="live-box" hidden>
       <div class="live-label" id="live-label"></div>

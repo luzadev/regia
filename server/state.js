@@ -37,6 +37,8 @@ function makeStation(config) {
     denied_until: null,
     intervention_id: null,
     media: { ok: null, message: null, warning: null, devices: null },
+    // Camera agent (OBSBOT SDK) for this station, when one is installed.
+    camera: { connected: false, ok: false, info: null, state: null, error: null },
     config
   };
 }
@@ -121,6 +123,20 @@ class Studio {
     // A station that is gone tells us nothing about its camera any more.
     if (!connected) st.media = { ok: null, message: null, warning: null, devices: null };
     return true;
+  }
+
+  /** Status of the station's camera agent (gimbal, zoom, model). */
+  setCamera(id, camera) {
+    const st = this.get(id);
+    if (!st) return err('unknown_station', `Poltrona sconosciuta: ${id}`);
+    st.camera = {
+      connected: !!camera.connected,
+      ok: !!camera.ok,
+      info: camera.info || null,
+      state: camera.state || null,
+      error: camera.error ? String(camera.error).slice(0, 200) : null
+    };
+    return { ok: true, plan: [] };
   }
 
   /** Camera/microphone availability reported by the station page. */
@@ -291,7 +307,9 @@ class Studio {
         deadline: s.deadline,
         countdown_total_s: s.countdown_total_s,
         denied_until: s.denied_until,
-        media: s.media
+        media: s.media,
+        camera: s.camera,
+        framing: s.config.framing || null
       }))
     };
   }

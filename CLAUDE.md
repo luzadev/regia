@@ -25,6 +25,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
 - **Backend**: Node.js 20+, Express + `ws` (WebSocket). Un solo processo.
 - **Frontend**: HTML/CSS/JS vanilla, servito dal backend. Nessun framework, nessun build step, nessun bundler. Deve girare su Chromium in kiosk su hardware modesto (N100).
 - **Video/audio**: WebRTC nativo del browser (nessuna libreria), signalling sul WebSocket esistente, `iceServers: []`.
+- **Telecamere (deciso il 17/9/2026)**: su ogni poltrona gira un **agente Node** (`agent/`) che comanda la OBSBOT Tiny 2 Lite con l'**SDK ufficiale OBSBOT**, attraverso un **ponte C++ minimo** caricato con `koffi`. È l'unico codice nativo del progetto. L'SDK è proprietario e **non va nel repository** (`docs/libdev*` e `agent/native/` sono ignorati): il ponte si compila contro l'SDK scaricato, su Windows con Visual Studio Build Tools.
 - **Stato**: in memoria, con log eventi append-only su file JSONL (per la cronologia dei tempi di parola). Niente database. Unica eccezione alla memoria volatile: i nomi ospite (vedi §6).
 - **Configurazione**: un solo file `config.json` (vedi §6).
 - Lingua: codice e commit in inglese; testi UI in italiano.
@@ -37,6 +38,7 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   state.js            # macchina a stati e coda (nessuna I/O, testabile)
   feed.js             # hub WebRTC: quale poltrona sta sul feed, relay del signalling
   settings.js         # validazione delle impostazioni modificabili a runtime
+  camera.js           # agenti telecamera: comandi, divieto in onda, inquadrature salvate
   drivers/
     video.mock.js     # driver video finto (logga soltanto)
     video.webrtc.js   # punta la pagina /feed/ sulla poltrona autorizzata (M2)
@@ -53,6 +55,11 @@ Questo repository contiene il software: backend, pagina poltrona, dashboard regi
   feed/               # feed pulito verso il mixer: /feed/ (Chromium kiosk su HDMI 2)
   diagnostica/        # prova telecamera sul computer della poltrona: dispositivi, risoluzioni, PTZ
   shared/             # css comune, client ws con riconnessione, WebRTC
+/agent                # agente telecamera per le poltrone (Node + ponte nativo)
+  camera-agent.js     # ruolo "camera": regole di sicurezza, comandi dalla regia, stato
+  bridge.js           # carica il ponte nativo con koffi
+  bridge/             # obsbot_bridge.cpp + script di compilazione (macOS/Linux e Windows)
+  README.md           # installazione su Windows
 /scripts
   sim.js              # simulatore poltrone (npm run sim)
 /test
@@ -131,12 +138,15 @@ Coda: FIFO per timestamp di richiesta, visibile in dashboard con nome ospite e a
 - **Dispositivi della poltrona**: `webrtc_video_device` / `webrtc_audio_device` scelgono telecamera e microfono per nome (frammento, senza maiuscole). Le poltrone usano la **OBSBOT Tiny 2 Lite**. Senza questa scelta il browser prende i predefiniti, e su una macchina con più ingressi finisce con la telecamera giusta e il microfono sbagliato (verificato). Dispositivo non trovato = la poltrona funziona con il predefinito ma segnala un `warning`, che in regia accende il badge ambra.
 - **`tls`**: i browser espongono webcam, microfono e `RTCPeerConnection` **solo in contesto sicuro** (`https://` o `http://localhost`), quindi con le poltrone su altre macchine l'HTTPS è necessario, non opzionale. `npm run cert` genera un certificato auto-firmato per `localhost`, il nome macchina e tutti gli IP di rete. `tls: null` = HTTP, e le poltrone hanno la webcam solo su localhost. Un certificato mancante o illeggibile non ferma il server: riparte in HTTP con un avviso.
 - `control_token: null` disattiva l'autenticazione (LAN chiusa). Se valorizzato, il ruolo `control` deve presentarlo nell'`hello` e negli endpoint HTTP (header `X-Control-Token`).
+- **Inquadratura per poltrona**: `stations[].framing` = `{ "pitch", "yaw", "zoom" }`, salvata dalla regia e rimessa automaticamente quando la telecamera di quella poltrona torna online, se la poltrona non è in onda.
 - **Poltrone dalla dashboard**: `stations` si può modificare anche dalla regia (aggiungi/rimuovi a caldo, senza riavvio). Il server riscrive `config.json` in modo atomico tenendo una copia in `config.json.bak`, quindi il file resta l'unica fonte di verità. Una poltrona **in onda non è rimovibile**: prima si chiude l'intervento.
 - **Nomi ospite**: si impostano dalla dashboard a inizio puntata e vivono in memoria, ma vengono salvati in `names_path` e ricaricati al boot, così un riavvio a metà puntata non li perde. Sono l'unico dato persistente oltre al log.
 
 ## 7. Protocollo WebSocket
 
-Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed"|"monitor", "station": "post-01", "token": "..." }`.
+Un solo endpoint WS (`/ws`). Il client si presenta con `{ "type": "hello", "role": "station"|"control"|"feed"|"monitor"|"camera", "station": "post-01", "token": "..." }`.
+
+Il ruolo `camera` è l'agente telecamera di una poltrona (uno per poltrona, vince l'ultimo). Richiede il `control_token` se configurato, perché può puntare una telecamera ovunque. **Nessun comando di movimento raggiunge la telecamera di una poltrona in onda**: il server li rifiuta con `is_live`, e anche il ripristino automatico dell'inquadratura salta le poltrone in onda.
 
 Il ruolo `feed` è il **feed pulito verso il mixer**: uno solo alla volta (vince l'ultimo, il precedente viene chiuso con codice `4000`). Il ruolo `monitor` è un'**anteprima** (la dashboard): quante se ne vuole, ognuna con la propria connessione WebRTC a qualità ridotta. Un'anteprima non conferma mai l'andata in onda, non genera errori driver e non scalza il feed pulito. Di default **segue l'onda**; con `preview` l'operatore può invece guardare **una poltrona scelta** (tipicamente un ospite in coda) senza mandarla in onda. Ogni dashboard sceglie per conto suo. Se la poltrona in anteprima viene autorizzata, l'anteprima torna a seguire l'onda senza rinegoziare; se l'onda cambia su un'altra poltrona, un'anteprima scelta dall'operatore non viene toccata. Se due client si presentano con lo stesso `station`, **vince l'ultimo** (il precedente viene chiuso con codice `4000`): un kiosk ricaricato non resta bloccato. Il client scalzato **non deve riconnettersi** — altrimenti le due finestre si scalzano a vicenda all'infinito — ma mostrare la view "POLTRONA APERTA ALTROVE" finché non viene ricaricato.
 
@@ -157,6 +167,13 @@ control → server : { "type": "update_station", "station": "post-03", "wled_seg
 control → server : { "type": "test_light", "station": "post-03", "color": "live" }   // prova, poi ripristina
 control → server : { "type": "test_relay", "station": "post-03" }
 server → mittente: { "type": "settings", "settings": { ... } }
+control → server : { "type": "camera_nudge", "station": "post-03", "dpitch": 2, "dyaw": -3 }   // max ±30°
+control → server : { "type": "camera_zoom", "station": "post-03", "dzoom": 0.2 }             // oppure "zoom": 1.5 (1-4)
+control → server : { "type": "camera_goto", "station": "post-03", "pitch": -19, "yaw": 12, "zoom": 1 }
+control → server : { "type": "camera_save_framing", "station": "post-03" }
+control → server : { "type": "camera_recall_framing", "station": "post-03" }
+camera  → server : { "type": "camera_status", "ok": true, "info": { "model", "sn", "firmware" }, "state": { "pitch", "yaw", "zoom", "ai_mode", "asleep" }, "error": null }
+server → camera  : { "type": "camera_cmd", "id": 1, "cmd": "nudge"|"zoom"|"goto", ... }
 control → server : { "type": "add_station", "station": { "id": "post-08", "label": "Poltrona 8", "wled_segment": 7, "relay_url": "..." } }
 control → server : { "type": "remove_station", "station": "post-08" }
 server → tutti   : { "type": "state_sync", ... }   // stato completo: idempotente, a ogni cambiamento e a ogni connessione
@@ -196,7 +213,9 @@ Schema di `state_sync`:
     { "id": "post-01", "label": "Poltrona 1", "name": "Rossi", "state": "REQUESTED",
       "connected": true, "requested_at": 1709999990000, "live_since": null,
       "deadline": null, "countdown_total_s": null, "denied_until": null,
-      "media": { "ok": true, "message": null, "warning": null, "devices": { "video": "OBSBOT Tiny 2 Lite StreamCamera", "audio": "OBSBOT Tiny 2 Lite Microphone" } } }
+      "media": { "ok": true, "message": null, "warning": null, "devices": { "video": "OBSBOT Tiny 2 Lite StreamCamera", "audio": "OBSBOT Tiny 2 Lite Microphone" } },
+      "camera": { "connected": true, "ok": true, "info": { "model": "Tiny 2 Lite" }, "state": { "pitch": -18.9, "yaw": 12.7, "zoom": 1, "ai_mode": 0, "asleep": false }, "error": null },
+      "framing": { "pitch": -18.9, "yaw": 12.7, "zoom": 1 } }
   ]
 }
 ```
@@ -215,7 +234,7 @@ Soglie dell'anello: 60 s e 30 s si applicano solo se il totale le supera; per co
 
 **Feed pulito** (`/feed/`): pagina nera a riposo, mostra in fullscreen la poltrona autorizzata con il suo audio. Nessun testo, nessun overlay (con `?debug=1` una riga di stato per il collaudo). Va aperta in Chromium kiosk sulla seconda uscita HDMI del PC di regia, quella collegata al mixer.
 
-**Dashboard regia** (`/regia/`): riquadro video sempre visibile — segue la poltrona in onda (etichetta rossa **IN ONDA**) oppure, con «Guarda» su una riga della coda o su una scheda, mostra quella poltrona **prima** di autorizzarla (etichetta ambra **ANTEPRIMA · NON IN ONDA** e pulsante «Torna all'onda»); connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio, che serve proprio a controllare il microfono di chi aspetta; colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
+**Dashboard regia** (`/regia/`): riquadro video sempre visibile — segue la poltrona in onda (etichetta rossa **IN ONDA**) oppure, con «Guarda» su una riga della coda o su una scheda, mostra quella poltrona **prima** di autorizzarla (etichetta ambra **ANTEPRIMA · NON IN ONDA** e pulsante «Torna all'onda»); connessione propria a qualità ridotta, muta, con pulsante per ascoltare l'audio, che serve proprio a controllare il microfono di chi aspetta; colonna coda richieste (ordine di arrivo, attesa in mm:ss), pannello poltrona live con countdown e tasti preset/±30 s, pulsante CHIUDI grande e rosso, griglia stato 7 poltrone (online/offline/stato) con "forza in onda", comandi telecamera sotto il riquadro quando si guarda una poltrona in anteprima (frecce, zoom, «Salva inquadratura», ⟲ richiama) e badge **ptz** sulle schede con un agente collegato, campo nome ospite per poltrona, toggle "modalità manuale", banner per server offline, errori driver e feed non collegato, indicatore webcam/microfono per poltrona. Utilizzabile anche da touch.
 
 **Modalità manuale**: il server smette di comandare video e luci (coda, stati e display continuano a funzionare). Alla riattivazione il server **risincronizza subito** i driver con lo stato corrente.
 

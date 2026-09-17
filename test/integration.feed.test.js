@@ -18,6 +18,23 @@ const WebSocket = require('ws');
 const ROOT = path.resolve(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Waits for a condition instead of a fixed delay: the suite runs test files in
+ * parallel, and a busy machine must not turn a correct server into a red test.
+ */
+async function until(check, timeoutMs = 5000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    try {
+      if (check()) return true;
+    } catch {
+      /* not there yet */
+    }
+    await sleep(50);
+  }
+  return false;
+}
+
 async function startServer() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'regia-it-'));
   const port = 18000 + Math.floor(Math.random() * 2000);
@@ -121,22 +138,22 @@ test('video path: rigid order, pairing rules and recovery', { timeout: 30000 }, 
 
   await t.test('without a feed receiver the station still goes live, and the banner says why', async () => {
     send(control, { type: 'grant', station: 'post-01', countdown_s: 60 });
-    await sleep(600);
+    await until(() => control.snap.drivers.video.status === 'error');
     assert.equal(stationIn(control, 'post-01').state, 'LIVE');
     assert.equal(control.snap.drivers.video.status, 'error');
     assert.equal(control.snap.feed.receivers, 0);
     send(control, { type: 'close', station: 'post-01' });
-    await sleep(300);
+    await until(() => control.snap.live === null);
   });
 
   const offers = [];
   const feed = await playingFeed(port, offers);
-  await sleep(300);
+  await until(() => control.snap.feed.receivers === 1);
 
   await t.test('the station sees "on air" only after the feed confirms the video', async () => {
     seen1.length = 0;
     send(control, { type: 'grant', station: 'post-01', countdown_s: 60 });
-    await sleep(700);
+    await until(() => control.snap.feed.ready === true && control.snap.drivers.video.status === 'ok');
     const order = seen1.filter((e) => e.peer === 'feed' || e.type === 'live_view').map((e) => e.type);
     assert.deepEqual(order.slice(0, 2), ['feed_start', 'live_view']);
     assert.deepEqual(offers, ['post-01']);
@@ -146,18 +163,18 @@ test('video path: rigid order, pairing rules and recovery', { timeout: 30000 }, 
 
   await t.test('a station that is not on air cannot reach the feed', async () => {
     send(s2, { type: 'rtc_signal', peer: 'feed', data: { sdp: 'intruso' } });
-    await sleep(200);
+    await until(() => s2.errors.some((e) => e.code === 'not_on_feed'));
     assert.ok(s2.errors.some((e) => e.code === 'not_on_feed'));
   });
 
   await t.test('switching station stops the outgoing one and the feed follows', async () => {
     seen1.length = 0;
     send(control, { type: 'grant', station: 'post-02' });
-    await sleep(700);
+    await until(() => control.snap.feed.target === 'post-02' && seen1.some((e) => e.type === 'feed_stop'));
     assert.ok(seen1.some((e) => e.type === 'feed_stop' && e.peer === 'feed'));
     assert.equal(control.snap.feed.target, 'post-02');
     send(control, { type: 'close', station: 'post-02' });
-    await sleep(300);
+    await until(() => control.snap.feed.target === null);
     assert.equal(control.snap.feed.target, null);
   });
 
@@ -190,11 +207,11 @@ test('dashboard preview: see a queued guest without putting them on air', { time
   await sleep(200);
 
   send(s3, { type: 'request_floor' });
-  await sleep(300);
+  await until(() => stationIn(control, 'post-03').state === 'REQUESTED');
 
   await t.test('choosing a queued guest opens a preview to that station only', async () => {
     send(monitor, { type: 'preview', station: 'post-03' });
-    await sleep(500);
+    await until(() => previewOffers.length === 1 && control.snap.feed.previews === 1);
     assert.deepEqual(modes[modes.length - 1], 'post-03');
     assert.ok(seen3.some((e) => e.type === 'feed_start' && /^mon-/.test(e.peer)), 'the station publishes to the dashboard');
     assert.deepEqual(previewOffers, ['post-03'], 'the dashboard receives the station offer');
@@ -210,7 +227,7 @@ test('dashboard preview: see a queued guest without putting them on air', { time
 
   await t.test('granting the previewed guest turns the preview into "follow the air"', async () => {
     send(control, { type: 'grant', station: 'post-03' });
-    await sleep(700);
+    await until(() => control.snap.live === 'post-03' && offersToFeed.length === 1 && control.snap.feed.previews === 0);
     assert.equal(control.snap.live, 'post-03');
     assert.equal(modes[modes.length - 1], null);
     assert.equal(control.snap.feed.previews, 0);
@@ -219,7 +236,7 @@ test('dashboard preview: see a queued guest without putting them on air', { time
 
   await t.test('an unknown station cannot be previewed', async () => {
     send(monitor, { type: 'preview', station: 'post-99' });
-    await sleep(200);
+    await until(() => monitor.errors.some((e) => e.code === 'unknown_station'));
     assert.ok(monitor.errors.some((e) => e.code === 'unknown_station'));
   });
 

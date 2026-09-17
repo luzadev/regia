@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const { Studio } = require('./state');
 const { createLog, readInterventions: readLog } = require('./log');
 const { FeedHub } = require('./feed');
+const { CameraHub } = require('./camera');
 const { sanitizeSettings, SETTINGS_KEYS } = require('./settings');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -101,6 +102,8 @@ function saveConfig(mutate) {
 }
 
 const saveStations = () => saveConfig();
+
+const cameraHub = new CameraHub({ studio, log, saveConfig: () => saveConfig() });
 
 /** The slice of config the settings page may read and write. */
 function currentSettings() {
@@ -314,6 +317,7 @@ const stationSockets = new Map();
 
 feedHub.stationSocket = (id) => stationSockets.get(id) || null;
 feedHub.onChange = () => broadcast();
+cameraHub.onChange = () => broadcast();
 
 function send(ws, payload) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
@@ -402,6 +406,7 @@ wss.on('connection', (ws) => {
     if (ws.role === 'station') return handleStationMessage(ws, msg);
     if (ws.role === 'feed') return handleFeedMessage(ws, msg);
     if (ws.role === 'monitor') return handleMonitorMessage(ws, msg);
+    if (ws.role === 'camera') return handleCameraMessage(ws, msg);
     return handleControlMessage(ws, msg);
   });
 
@@ -409,6 +414,7 @@ wss.on('connection', (ws) => {
     clients.delete(ws);
     if (ws.role === 'feed') feedHub.removeClient(ws);
     if (ws.role === 'monitor') feedHub.removeMonitor(ws);
+    if (ws.role === 'camera') cameraHub.removeAgent(ws, ws.stationId);
     if (ws.role === 'station' && stationSockets.get(ws.stationId) === ws) {
       stationSockets.delete(ws.stationId);
       if (studio.setConnected(ws.stationId, false)) {
@@ -457,6 +463,26 @@ function handleHello(ws, msg) {
     feedHub.addClient(ws);
     log.event('feed_online', {});
     send(ws, studio.snapshot(driverStatus, feedHub.status()));
+    return;
+  }
+
+  // Camera agent on a station computer: moves the OBSBOT gimbal and zoom when
+  // the server says so. It can point a camera anywhere, so it needs the control
+  // token whenever one is configured.
+  if (msg.role === 'camera') {
+    if (config.control_token && msg.token !== config.control_token) {
+      sendError(ws, 'unauthorized', 'Token non valido');
+      return ws.close(4003, 'unauthorized');
+    }
+    const st = studio.get(msg.station);
+    if (!st) {
+      sendError(ws, 'unknown_station', `Poltrona sconosciuta: ${msg.station}`);
+      return ws.close(4004, 'unknown station');
+    }
+    ws.role = 'camera';
+    ws.stationId = st.id;
+    clients.add(ws); // heartbeat and dead-socket detection like everyone else
+    cameraHub.addAgent(ws, st.id);
     return;
   }
 
@@ -559,6 +585,11 @@ function handleFeedMessage(ws, msg) {
     default:
       return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
   }
+}
+
+function handleCameraMessage(ws, msg) {
+  if (msg.type === 'camera_status') return cameraHub.update(ws.stationId, msg);
+  return sendError(ws, 'bad_command', `Comando non ammesso: ${msg.type}`);
 }
 
 function handleMonitorMessage(ws, msg) {
@@ -701,6 +732,25 @@ function handleControlMessage(ws, msg) {
       return;
     }
 
+    case 'camera_nudge':
+    case 'camera_zoom':
+    case 'camera_goto': {
+      const order = { ...msg, cmd: msg.type.slice('camera_'.length) };
+      const res = cameraHub.command(msg.station, order);
+      if (!res.ok) sendError(ws, res.code, res.message);
+      return;
+    }
+    case 'camera_save_framing': {
+      const res = cameraHub.saveFraming(msg.station);
+      if (!res.ok) sendError(ws, res.code, res.message);
+      return;
+    }
+    case 'camera_recall_framing': {
+      const res = cameraHub.recallFraming(msg.station);
+      if (!res.ok) sendError(ws, res.code, res.message);
+      return;
+    }
+
     case 'add_station': {
       const res = studio.addStation(msg.station || {});
       if (!res.ok) return sendError(ws, res.code, res.message);
@@ -725,6 +775,7 @@ function handleControlMessage(ws, msg) {
         socket.close(4004, 'removed');
       }
       appliedColor.delete(id);
+      cameraHub.forget(id);
       const saved = saveStations();
       log.event('station_removed', { station: id, saved: saved.ok });
       if (!saved.ok) {

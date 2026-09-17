@@ -221,6 +221,22 @@ USB, quindi il limite visto su macOS non dovrebbe valere lì. Si verifica con la
 diagnostica (sotto). Le funzioni proprie di OBSBOT si impostano con OBSBOT Center, una volta
 in allestimento, verificando che restino salvate nella telecamera.
 
+### Telecamera comandabile dalla regia (agente OBSBOT)
+
+Con l'**agente telecamera** installato sulla poltrona (vedi [`agent/README.md`](agent/README.md))
+la regia comanda gimbal e zoom della OBSBOT attraverso l'SDK ufficiale, anche dove il browser
+non arriva:
+
+- la scheda della poltrona mostra il badge blu **ptz**;
+- con «**Guarda**» su una poltrona, sotto il riquadro compaiono **frecce, zoom, «Salva
+  inquadratura» e ⟲** (torna all'inquadratura salvata);
+- l'inquadratura salvata finisce in `config.json` (`stations[].framing`) e viene **rimessa da sola**
+  quando la telecamera riparte;
+- **una poltrona in onda non si muove mai**: i comandi compaiono solo in anteprima, e il server li
+  rifiuta comunque se la poltrona è in onda.
+
+L'agente spegne anche tracking AI e gesti, e tiene sveglia la telecamera.
+
 ### Diagnostica telecamera
 
 Sul computer della poltrona, con la telecamera collegata, apri in Chrome:

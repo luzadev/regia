@@ -1,0 +1,15 @@
+{
+  "name": "regia-camera-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Station camera agent: drives the OBSBOT gimbal and zoom for Regia through the vendor SDK",
+  "main": "camera-agent.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node camera-agent.js"
+  },
+  "dependencies": {
+    "koffi": "^3.3.0",
+    "ws": "^8.18.0"
+  }
+}

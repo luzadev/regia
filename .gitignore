@@ -2,3 +2,10 @@ node_modules/
 data/
 config.json.bak
 certs/
+
+# OBSBOT SDK: proprietario, non va nel repository
+docs/libdev*
+
+# native bridge build output (contains the proprietary OBSBOT SDK)
+agent/native/
+.DS_Store

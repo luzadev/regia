@@ -229,3 +229,27 @@ p.plain { display: block; padding: 0; }
 .guide-body b { color: var(--text); font-weight: 600; }
 .guide-body em { color: var(--text); font-style: normal; border-bottom: 1px dashed var(--line); }
 .guide-body i { font-style: italic; }
+
+/* Camera controls under the preview. Big targets: this is used by touch too. */
+.camera-bar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  margin: -2px 0 12px;
+  padding: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--amber);
+  border-radius: 10px;
+}
+.cam-pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 38px); gap: 4px; }
+.cam-pad button { padding: 0; font-size: 16px; }
+.cam-pad #cam-recall { font-size: 18px; }
+.cam-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cam-zoom { display: flex; align-items: center; gap: 8px; }
+.cam-zoom button { width: 44px; padding: 6px 0; font-size: 18px; }
+.cam-zoom span { color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.cam-info { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; line-height: 1.4; }
+.cam-info b { color: var(--text); font-weight: 600; }
+.badge.ptz-ok { background: rgba(59,130,246,0.18); color: var(--blue); }
+.badge.ptz-ko { background: rgba(255,45,45,0.2); color: var(--red); }

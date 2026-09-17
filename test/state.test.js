@@ -260,7 +260,7 @@ test('snapshot is the full documented state and hides internals', () => {
   assert.deepEqual(snap.drivers, { video: { status: 'ok' } });
   assert.equal(snap.stations.length, 3);
   assert.deepEqual(Object.keys(snap.stations[0]).sort(), [
-    'connected', 'countdown_total_s', 'deadline', 'denied_until', 'id',
+    'camera', 'connected', 'countdown_total_s', 'deadline', 'denied_until', 'framing', 'id',
     'label', 'live_since', 'media', 'name', 'requested_at', 'state'
   ]);
 });
@@ -371,4 +371,22 @@ test('removing a queued station takes it out of the queue', () => {
   studio.requestFloor('post-03');
   studio.removeStation('post-02');
   assert.deepEqual(studio.queue().map((s) => s.id), ['post-03']);
+});
+
+test('camera agent status is kept per station, with the saved framing', () => {
+  const { studio } = makeStudio();
+  assert.equal(studio.get('post-01').camera.connected, false);
+
+  studio.setCamera('post-01', {
+    connected: true, ok: true,
+    info: { model: 'Tiny 2 Lite', sn: 'X1' },
+    state: { pitch: -19.1, yaw: 12.4, zoom: 1, ai_mode: 0, asleep: false }
+  });
+  studio.get('post-01').config.framing = { pitch: -19.1, yaw: 12.4, zoom: 1 };
+
+  const snap = studio.snapshot().stations.find((s) => s.id === 'post-01');
+  assert.equal(snap.camera.ok, true);
+  assert.equal(snap.camera.info.model, 'Tiny 2 Lite');
+  assert.deepEqual(snap.framing, { pitch: -19.1, yaw: 12.4, zoom: 1 });
+  assert.equal(studio.setCamera('post-99', {}).code, 'unknown_station');
 });

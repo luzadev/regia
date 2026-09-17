@@ -68,6 +68,27 @@
   document.getElementById('preview-back').addEventListener('click', function () {
     watch(null);
   });
+
+  // Camera moves go over the control connection, and only for the station being
+  // previewed: the server refuses anything aimed at a station on air anyway.
+  document.querySelectorAll('#camera-bar [data-dp]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!previewing) return;
+      bridge.send({ type: 'camera_nudge', station: previewing, dpitch: Number(b.dataset.dp), dyaw: Number(b.dataset.dy) });
+    });
+  });
+  document.querySelectorAll('#camera-bar [data-dz]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!previewing) return;
+      bridge.send({ type: 'camera_zoom', station: previewing, dzoom: Number(b.dataset.dz) });
+    });
+  });
+  document.getElementById('cam-save').addEventListener('click', function () {
+    if (previewing) bridge.send({ type: 'camera_save_framing', station: previewing });
+  });
+  document.getElementById('cam-recall').addEventListener('click', function () {
+    if (previewing) bridge.send({ type: 'camera_recall_framing', station: previewing });
+  });
   var preview = new FeedReceiver(previewBridge, previewVideo, { preview: true });
 
   var previewAudio = document.getElementById('preview-audio');
@@ -226,6 +247,38 @@
       empty.hidden = true;
     }
     tag.hidden = !watched && !previewing;
+    renderCameraBar(previewing ? watched : null);
+  }
+
+  function renderCameraBar(station) {
+    var bar = document.getElementById('camera-bar');
+    var cam = station && station.camera;
+    // Only a previewed station, not on air, with a camera agent connected.
+    bar.hidden = !station || station.state === 'LIVE' || !cam || !cam.connected;
+    if (bar.hidden) return;
+
+    var info = document.getElementById('cam-info');
+    var fmt = function (n, d) { return Number(n).toFixed(d).replace('.', ','); };
+    var parts = [];
+    if (cam.info) parts.push('<b>' + escapeHtml(cam.info.model) + '</b>');
+    if (cam.ok && cam.state) {
+      parts.push('pitch ' + fmt(cam.state.pitch, 1) + '° · yaw ' + fmt(cam.state.yaw, 1) + '° · zoom ' + fmt(cam.state.zoom, 2));
+    } else {
+      parts.push('telecamera non disponibile' + (cam.error ? ': ' + escapeHtml(cam.error) : ''));
+    }
+    parts.push(station.framing ? 'inquadratura salvata' : 'nessuna inquadratura salvata');
+    info.innerHTML = parts.join('<br>');
+
+    var usable = cam.ok && !!cam.state;
+    bar.querySelectorAll('button').forEach(function (b) {
+      b.disabled = !usable || (b.id === 'cam-recall' && !station.framing);
+    });
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
   }
 
   function renderQueue(snap) {
@@ -354,6 +407,14 @@
       card.link.className = 'badge ' + (s.connected ? 'idle' : 'offline');
       card.link.textContent = s.connected ? 'online' : 'offline';
 
+      var camera = s.camera || {};
+      card.ptz.hidden = !camera.connected;
+      card.ptz.className = 'badge ' + (camera.ok ? 'ptz-ok' : 'ptz-ko');
+      card.ptz.textContent = camera.ok ? 'ptz' : 'ptz ko';
+      card.ptz.title = camera.ok
+        ? (camera.info ? camera.info.model : 'telecamera comandabile') + (s.framing ? ' · inquadratura salvata' : '')
+        : camera.error || 'agente collegato, telecamera non disponibile';
+
       var media = s.media || {};
       card.cam.hidden = media.ok === null || media.ok === undefined;
       card.cam.className = 'badge ' + (!media.ok ? 'cam-ko' : media.warning ? 'cam-warn' : 'cam-ok');
@@ -390,9 +451,12 @@
     var link = document.createElement('span');
     var cam = document.createElement('span');
     cam.hidden = true;
+    var ptz = document.createElement('span');
+    ptz.hidden = true;
     badges.appendChild(state);
     badges.appendChild(link);
     badges.appendChild(cam);
+    badges.appendChild(ptz);
     head.appendChild(label);
     head.appendChild(badges);
 
@@ -474,7 +538,7 @@
     root.appendChild(remove);
     el.grid.appendChild(root);
 
-    cards[s.id] = { root: root, state: state, link: link, cam: cam, name: name, look: look, go: go, stop: stop };
+    cards[s.id] = { root: root, state: state, link: link, cam: cam, ptz: ptz, name: name, look: look, go: go, stop: stop };
     return cards[s.id];
   }
 
