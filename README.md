@@ -520,6 +520,14 @@ contabilità separata da tenere allineata.
 
 ## Deploy in studio
 
+**In studio si usano le due app desktop per Windows** (`apps/regia` e `apps/poltrona`): server,
+dashboard e feed sul mixer in un programma, pagina poltrona e agente telecamera nell'altro,
+certificato riconosciuto per impronta senza `certutil`. Procedura completa, generazione degli
+installer e collaudo in [docs/INSTALLAZIONE.md](docs/INSTALLAZIONE.md). Test delle app:
+`npm test` dentro `apps/regia` e `apps/poltrona`.
+
+Quello che segue è il deploy a mano, senza app (Linux o Windows).
+
 ### Server di regia (Linux, systemd)
 
 `/etc/systemd/system/regia.service`:

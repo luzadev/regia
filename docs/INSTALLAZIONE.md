@@ -1,15 +1,23 @@
 # Installazione in studio
 
-Procedura per mettere in servizio Regia sul **PC server** e sulle **poltrone Windows**.
-Le istruzioni presumono Windows anche sul PC server; per un server Linux vedi *Deploy in studio*
-nel README (systemd).
+Procedura per mettere in servizio Regia sul **PC server** e sulle **poltrone**, tutti Windows,
+con le due app desktop:
 
-> **Da leggere prima.** Tutta la catena Windows — ponte OBSBOT compilato con `build.cmd`, agente
-> telecamera, file di avvio — è **scritta ma non ancora provata su Windows**: è stata verificata
-> su macOS con la telecamera vera. Per questo si parte da **una sola poltrona pilota**, e solo
-> quando funziona si replicano le altre sei.
+| App | Dove | Cosa fa |
+| --- | --- | --- |
+| **Regia** (`Regia-Setup-1.0.0.exe`) | PC server | avvia il server, apre la dashboard, mette il feed a schermo intero sul monitor del mixer |
+| **Regia Poltrona** (`Regia-Poltrona-Setup-1.0.0.exe`) | ogni poltrona | pagina poltrona a schermo intero + agente telecamera OBSBOT, in un solo programma |
 
-Nei comandi, `192.168.10.10` è l'indirizzo del PC server: sostituiscilo con il tuo.
+Rispetto all'installazione a mano non servono più Node.js, Chrome, `openssl`, `certutil` né i
+file `.cmd` di avvio: il certificato lo crea l'app Regia e le poltrone lo riconoscono con un
+**abbinamento** fatto una volta.
+
+> **Da leggere prima.** Le app sono state provate su macOS (abbinamento, certificato, webcam,
+> messa in onda fino al feed, guasti e riavvii) e gli installer Windows sono generati, ma **su
+> Windows non sono ancora state provate**, come il ponte OBSBOT. Si parte quindi da **una sola
+> poltrona pilota**, e solo quando funziona si installano le altre sei.
+
+Nei passi, `192.168.10.10` è l'indirizzo del PC server: sostituiscilo con il tuo.
 
 ---
 
@@ -17,85 +25,70 @@ Nei comandi, `192.168.10.10` è l'indirizzo del PC server: sostituiscilo con il 
 
 | Cosa | Dove |
 | --- | --- |
-| Il codice | repository privato `luzadev/regia` (clone con Git, oppure *Code → Download ZIP* da GitHub) |
+| I due installer `.exe` | vedi *Generare gli installer* in fondo |
 | L'SDK OBSBOT `libdev_v2.1.0_8.zip` | non è nel repository: copialo a parte |
-| Node.js **20 o superiore, x64** | server e poltrone |
-| Google Chrome | server e poltrone |
-| Git for Windows | server (serve anche per `openssl`) |
-| Visual Studio Build Tools, carico *Sviluppo di applicazioni desktop con C++* | **solo** sulla poltrona pilota, per compilare il ponte OBSBOT una volta |
-| Internet | **solo durante l'installazione** (Node, `npm install`); in diretta il sistema non ne ha bisogno |
+| Visual Studio Build Tools (carico *Sviluppo di applicazioni desktop con C++*), Node.js 20+ e il codice | **solo** sulla poltrona pilota, per compilare il ponte OBSBOT una volta |
 
 **Licenza SDK:** lo zip OBSBOT non contiene un file di licenza. Prima di copiare `libdev.dll`
 su sette computer verifica i termini d'uso con OBSBOT.
 
+**Avviso di Windows all'installazione.** Gli installer non sono firmati: Windows mostra
+«Windows ha protetto il PC». Clicca **Ulteriori informazioni → Esegui comunque**.
+
 ---
 
-## 1. PC server (regia)
+## 1. PC server
 
 ### 1.1 Rete
-- Dai al server un **indirizzo IP fisso** (o una prenotazione DHCP sul router). Il certificato
-  HTTPS contiene l'IP: se l'IP cambia, il certificato va rifatto e reinstallato ovunque.
-- Apri la porta **8080** in ingresso (Prompt dei comandi *come amministratore*):
+- Dai al server un **indirizzo IP fisso** (o una prenotazione DHCP sul router): le poltrone lo
+  memorizzano all'abbinamento.
+- Porta **8080** in ingresso. Al primo avvio Windows chiede se consentire l'accesso a *Regia*:
+  spunta **Reti private** e consenti. Se la domanda non compare (Prompt *come amministratore*):
 
   ```bat
   netsh advfirewall firewall add rule name="Regia 8080" dir=in action=allow protocol=TCP localport=8080
   ```
 
-### 1.2 Codice e dipendenze
-```bat
-cd C:\
-git clone https://github.com/luzadev/regia.git regia
-cd C:\regia
-npm install
-```
+### 1.2 Installazione e primo avvio
+1. Esegui `Regia-Setup-1.0.0.exe`.
+2. Avvia **Regia**. Al primo avvio crea in `%APPDATA%\Regia\`:
+   - `config.json` (video WebRTC, HTTPS attivo, sette poltrone),
+   - `certs\server.crt` e `certs\server.key` (certificato valido 10 anni),
+   - `data\` (cronologia e nomi) e `logs\` (registri dell'app e del server).
+3. Si apre la **dashboard**. Se compare «Il server Regia non si avvia — porta 8080 già usata»,
+   c'è ancora un server avviato a mano: chiudilo e premi **Riprova**.
 
-### 1.3 Certificato HTTPS
-Senza HTTPS le poltrone non hanno webcam né microfono. Il certificato va generato **sul server**,
-dopo aver fissato l'IP, da **Git Bash** (che contiene `openssl`):
+`server.key` **non esce mai dal server** e non va copiato da nessuna parte.
 
-```bash
-cd /c/regia
-npm run cert
-```
+**Arrivi da un'installazione a mano?** Chiudi l'app, copia il tuo `config.json` e la cartella
+`certs\` in `%APPDATA%\Regia\` e riavvia: i percorsi vengono sistemati da soli.
 
-Controlla che l'elenco stampato contenga l'IP fisso del server. `config.json` punta già a
-`certs/server.crt` e `certs/server.key`.
+### 1.3 Configurazione
+- **Poltrone**: si aggiungono e tolgono dalla dashboard.
+- **Luci e relè**: menu **Regia › Impostazioni luci e relè**.
+- Per il resto, menu **Aiuto › Apri cartella dati** e modifica `config.json` ad app chiusa.
+- **`control_token`: lascialo `null`.** Le pagine non inviano ancora il token.
 
-Poi rendilo attendibile, così Chrome non mostra avvisi (Prompt *come amministratore*):
+### 1.4 Feed verso il mixer
+- Con il monitor del mixer collegato, il feed va **da solo a schermo intero sul secondo
+  schermo** (nero a riposo). Se stacchi e riattacchi il cavo, torna al suo posto.
+- Con più di due schermi: **Feed › Schermo del feed** e scegli quello giusto (la scelta resta).
+- Con un solo schermo il feed non va da nessuna parte e la dashboard mostra il banner «nessun
+  ricevitore feed». Per una prova: **Feed › Apri il feed in una finestra**.
+- **Audio:** in *Impostazioni di Windows → Audio* imposta come uscita predefinita il dispositivo
+  HDMI verso il mixer, se il mixer prende l'audio dall'HDMI.
 
-```bat
-certutil -addstore -f Root C:\regia\certs\server.crt
-```
+### 1.5 Avvio automatico e spegnimento
+- L'app parte con Windows (disattivabile da **Aiuto › Avvia con Windows**) e tiene lo schermo
+  acceso.
+- Chiudendo la finestra della dashboard l'app chiede conferma: si ferma anche il server, le
+  poltrone vanno OFFLINE e il feed diventa nero.
+- Se il server si blocca, l'app lo riavvia da sola; le pagine si ricollegano.
 
-`server.key` **non esce mai dal server**. Alle poltrone va copiato solo `server.crt`.
-
-### 1.4 Configurazione (`config.json`)
-- `stations`: le sette poltrone, con `id` (`post-01`…`post-07`) ed etichetta.
-- `webrtc_video_device` / `webrtc_audio_device`: `"OBSBOT"` (già impostati).
-- `lights_driver` / `relay_driver`: lascia `mock` finché WLED e relè non sono in rete, poi si
-  impostano da **/impostazioni/**.
-- **`control_token`: lascialo `null`.** Regia, impostazioni e feed non inviano ancora il token:
-  impostandolo, la regia verrebbe rifiutata.
-
-### 1.5 Primo avvio a mano
-```bat
-cd C:\regia
-npm start
-```
-Deve comparire `in ascolto su https://0.0.0.0:8080` e l'indirizzo della poltrona con l'IP del
-server. Se compare «porta 8080 già occupata», c'è già un server acceso.
-
-Apri `https://localhost:8080/regia/`: la regia deve caricarsi senza avvisi di certificato.
-
-### 1.6 Feed verso il mixer e avvio automatico
-1. Copia `deploy\windows\avvia-regia.cmd` e adatta le righe in cima: `REGIA_DIR` e `FEED_X`
-   (la coordinata X del monitor collegato al mixer, da *Impostazioni → Schermo*).
-2. **Audio:** in *Impostazioni → Audio* imposta come uscita predefinita il dispositivo HDMI del
-   monitor verso il mixer, se il mixer prende l'audio dall'HDMI.
-3. Premi `Win+R`, scrivi `shell:startup` e metti lì un collegamento a `avvia-regia.cmd`.
-4. Riavvia il PC: devono partire server, **feed** a schermo intero sul monitor del mixer (nero) e
-   **regia** sul monitor dell'operatore. In regia il banner rosso «nessun ricevitore feed» deve
-   sparire.
+### 1.6 Dati per l'abbinamento
+**Aiuto › Collegamento poltrone…** mostra l'**indirizzo** da scrivere sulle poltrone e
+l'**impronta del certificato** (`AB:CD:…`), che ogni poltrona mostra durante l'abbinamento:
+devono coincidere. Tieni aperta la finestra mentre abbini.
 
 ---
 
@@ -115,26 +108,32 @@ Apri `https://localhost:8080/regia/`: la regia deve caricarsi senza avvisi di ce
   powercfg /setactive SCHEME_CURRENT
   ```
 - Collega la **OBSBOT Tiny 2 Lite** a una porta USB diretta del PC, non a un hub.
+- *Impostazioni → Privacy → Fotocamera / Microfono*: lascia attivo l'accesso per le **app
+  desktop**.
 
-### 2.2 Codice e certificato
-- Copia il progetto in `C:\regia` (clone o ZIP).
-- Crea `C:\regia\certs` e copiaci **solo** `server.crt` dal server, poi rendilo attendibile
-  (*come amministratore*):
+### 2.2 Installazione e abbinamento
+1. Esegui `Regia-Poltrona-Setup-1.0.0.exe` e avvia **Regia Poltrona**.
+2. Si apre **Abbinamento poltrona** (serve una tastiera, solo questa volta):
+   1. scrivi l'indirizzo del server (`192.168.10.10`) e premi **Cerca**;
+   2. confronta l'**impronta** con quella di *Aiuto › Collegamento poltrone* sul server — se è
+      diversa **non proseguire**;
+   3. tocca **Poltrona 1**.
+3. Compare il pulsante **CHIEDI LA PAROLA** a schermo intero. Webcam e microfono vengono concessi
+   dall'app senza domande (solo alla pagina del server abbinato).
 
-  ```bat
-  certutil -addstore -f Root C:\regia\certs\server.crt
-  ```
+Da qui in poi l'app parte con Windows, a schermo intero. Scorciatoie per il tecnico:
 
-### 2.3 Prima prova: diagnostica
-Apri Chrome normale su `https://192.168.10.10:8080/diagnostica/`, clicca **Consenti** e aspetta
-l'esito. Tutte le voci devono essere verdi tranne, eventualmente, **PTZ dal browser** (non serve:
-i movimenti passano dall'agente). Il risultato arriva anche al server:
+| Tasti | Effetto |
+| --- | --- |
+| `Ctrl+Maiusc+F12` | torna all'abbinamento (cambiare server o poltrona) |
+| `Ctrl+Maiusc+Q` | chiude l'app |
 
-```bat
-findstr "diagnostics" C:\regia\data\events.jsonl
-```
+Dati e registri in `%APPDATA%\Regia Poltrona\` (`pairing.json`, `logs\app.log`,
+`logs\agent.log`).
 
-### 2.4 Ponte OBSBOT (una volta sola, su questa poltrona)
+### 2.3 Ponte OBSBOT (una volta sola, su questa poltrona)
+Serve il codice del repository (clone o ZIP in `C:\regia`) e i Build Tools.
+
 1. Estrai l'SDK, ad esempio in `C:\obsbot\libdev_v2.1.0_8`.
 2. Apri **x64 Native Tools Command Prompt for VS**:
 
@@ -144,42 +143,34 @@ findstr "diagnostics" C:\regia\data\events.jsonl
    agent\bridge\build.cmd
    ```
 3. In `C:\regia\agent\native\` devono esserci `obsbot_bridge.dll`, `libdev.dll`,
-   `w32-pthreads.dll`. **Conserva questa cartella**: sulle altre poltrone si copia e basta.
+   `w32-pthreads.dll`. **Conserva questi tre file**: sulle altre poltrone si copiano e basta.
+4. Copiali in `%APPDATA%\Regia Poltrona\native\` (crea la cartella).
+5. Chiudi l'app (`Ctrl+Maiusc+Q`) e riavviala. In `logs\agent.log` deve comparire:
+   ```
+   [agente] telecamera trovata: Tiny 2 Lite sn … firmware …
+   [agente] regole di sicurezza: tracking AI spento:ok, gesti spenti:ok
+   ```
 
-### 2.5 Agente telecamera
-```bat
-cd C:\regia\agent
-npm install
-node camera-agent.js --server wss://192.168.10.10:8080/ws --station post-01 --ca C:\regia\certs\server.crt
-```
-Deve scrivere:
-```
-[agente] telecamera trovata: Tiny 2 Lite sn … firmware …
-[agente] regole di sicurezza: tracking AI spento:ok, gesti spenti:ok
-```
-Chiudilo con `Ctrl+C` quando la prova è finita: poi parte da solo (punto successivo).
+Se il ponte manca, la poltrona funziona lo stesso (video e audio), senza controlli della
+telecamera dalla regia: la schermata di abbinamento lo segnala in basso.
 
-### 2.6 Avvio automatico
-1. Copia `deploy\windows\avvia-poltrona.cmd` in `C:\regia\avvia-poltrona.cmd` e imposta
-   `STATION=post-01` e `SERVER_IP`.
-2. `Win+R` → `shell:startup` → collegamento a `avvia-poltrona.cmd`.
-3. Riavvia: devono partire la pagina poltrona a schermo intero e, ridotto a icona, l'agente
-   (registro in `C:\regia\agent-post-01.log`).
-
-### 2.7 Collaudo della pilota, dalla regia
+### 2.4 Collaudo della pilota, dalla regia
 1. La scheda **Poltrona 1** è **online**, con badge verde **cam** e blu **ptz**.
 2. Passando sul badge **cam**: telecamera e microfono sono entrambi **OBSBOT**.
 3. **Guarda** sulla Poltrona 1: video in anteprima, frecce e zoom muovono la camera.
 4. **Salva inquadratura**, sposta la camera, premi **⟲**: torna dov'era.
 5. Dalla poltrona **Chiedi la parola**, poi **Autorizza**: la poltrona mostra «SEI IN ONDA», il
-   feed sul mixer mostra l'ospite.
+   feed sul mixer mostra l'ospite con l'audio.
 6. In onda: il riquadro rosso **Inquadratura in onda** cambia modo solo col doppio tocco; frecce e
    zoom non ci sono.
 7. **CHIUDI**: la poltrona torna al pulsante, il feed torna nero.
-8. Riavvia il PC della poltrona: al rientro la camera torna sull'inquadratura salvata.
+8. Spegni e riaccendi la poltrona: l'app riparte da sola, a schermo intero, e la camera torna
+   sull'inquadratura salvata.
+9. Chiudi l'app Regia sul server: la poltrona mostra SISTEMA NON DISPONIBILE; riaprila: la
+   poltrona torna al pulsante senza toccarla.
 
-Se un punto fallisce, manda il registro dell'agente (`agent-post-01.log`) e l'ultima riga
-`diagnostics` del server.
+Se un punto fallisce, manda `logs\app.log` e `logs\agent.log` della poltrona e `logs\server.log`
+del server.
 
 ---
 
@@ -188,19 +179,20 @@ Se un punto fallisce, manda il registro dell'agente (`agent-post-01.log`) e l'ul
 Per ciascuna (`post-02` … `post-07`), come la pilota **tranne la compilazione**:
 
 1. Windows: utente con accesso automatico, `powercfg` (2.1), OBSBOT su USB diretta.
-2. Copia `C:\regia` **dalla pilota**, compresi `agent\native\` e `agent\node_modules\`: così
-   non servono né Build Tools né internet.
-3. `certutil -addstore -f Root C:\regia\certs\server.crt` (come amministratore).
-4. In `C:\regia\avvia-poltrona.cmd` cambia **solo** `STATION`.
-5. Collegamento in `shell:startup`, riavvio, collaudo 2.7 punti 1–3.
+2. Installa **Regia Poltrona**, abbina scegliendo la poltrona giusta (2.2).
+3. Copia i tre file del ponte in `%APPDATA%\Regia Poltrona\native\` e riavvia l'app.
+4. Collaudo 2.4, punti 1–3.
+
+Una poltrona già collegata da un altro computer compare come «già collegata altrove»: per
+prenderla serve un secondo tocco, ed è giusto così solo se stai sostituendo quel computer.
 
 ---
 
 ## 4. Accensione dello studio, ogni volta
 
-1. Accendi il **PC server**: partono server, feed e regia.
+1. Accendi il **PC server**: parte Regia, con dashboard e feed.
 2. Accendi le **poltrone**: in regia diventano **online** una dopo l'altra (se partono prima del
-   server mostrano OFFLINE e si ricollegano da sole).
+   server mostrano SISTEMA NON DISPONIBILE e si collegano da sole).
 3. In regia: nessun banner rosso, sette poltrone con **cam** verde e **ptz** blu.
 4. Scrivi i **nomi degli ospiti** nelle schede.
 5. Prova completa su una poltrona: richiesta → autorizza → chiudi.
@@ -211,11 +203,42 @@ Per ciascuna (`post-02` … `post-07`), come la pilota **tranne la compilazione*
 
 | Sintomo | Causa probabile |
 | --- | --- |
-| La poltrona scrive «il browser blocca webcam e microfono» | aperta in `http://` invece di `https://`, o certificato non installato |
-| Avviso di certificato in Chrome | `certutil` non eseguito come amministratore, oppure certificato generato prima di fissare l'IP |
-| Badge **cam !** ambra | telecamera o microfono OBSBOT non trovati: la poltrona usa i dispositivi predefiniti |
-| Nessun badge **ptz** | agente non partito: guarda `agent-post-0N.log` |
-| «POLTRONA APERTA ALTROVE» | la stessa poltrona è aperta in due finestre: chiudine una e ricarica |
-| Banner rosso «nessun ricevitore feed» | la pagina feed non è aperta sul PC server |
+| Poltrona: «Server regia non raggiungibile» | server spento, IP cambiato, porta 8080 chiusa dal firewall del server |
+| Poltrona: «Il certificato del server è cambiato» | è stato rigenerato il certificato (o cancellata la cartella `certs`) sul server: rifai l'abbinamento su ogni poltrona |
+| Poltrona: «La poltrona post-0N non esiste più» | tolta dalla dashboard: riaggiungila o abbina un'altra poltrona |
+| Il server ha cambiato IP | `Ctrl+Maiusc+F12` su ogni poltrona e nuovo indirizzo; l'impronta resta la stessa |
+| Badge **cam !** ambra | telecamera o microfono OBSBOT non trovati, o accesso negato in *Privacy → Fotocamera* |
+| Nessun badge **ptz** | ponte non copiato in `native\`, o agente fermo: guarda `logs\agent.log` |
+| «POLTRONA APERTA ALTROVE» | la stessa poltrona è aperta anche su un altro computer o in un browser |
+| Banner rosso «nessun ricevitore feed» | nessun secondo schermo collegato al server, o feed chiuso: menu **Feed** |
 | Audio del feed muto | uscita audio di Windows non impostata sull'HDMI del mixer |
-| Regia rifiutata dopo aver impostato `control_token` | non ancora supportato dalle pagine: riportalo a `null` |
+| Regia: «Il server Regia non si avvia» | leggi il dettaglio; **Aiuto › Apri cartella dati → logs\server.log** |
+
+---
+
+## Generare gli installer
+
+Da un PC con Node.js 20+ e internet (Windows, oppure macOS: gli installer Windows si generano
+anche da lì), nella cartella del repository:
+
+```bash
+cd apps/regia
+npm install
+npm run dist:win        # → apps/regia/dist/Regia-Setup-1.0.0.exe
+
+cd ../poltrona
+npm install
+npm run dist:win        # → apps/poltrona/dist/Regia-Poltrona-Setup-1.0.0.exe
+```
+
+Il ponte OBSBOT e l'SDK **non** finiscono negli installer: si copiano a parte (2.3).
+
+Per provare le app senza installarle: `npm start` nelle due cartelle (`REGIA_WINDOWED=1` per la
+poltrona in finestra, `REGIA_APP_DATA=<cartella>` per non toccare i dati veri).
+
+## Installazione a mano (senza app)
+
+Resta possibile: server con `npm start`, certificato con `npm run cert` e `certutil` su ogni
+computer, Chrome in kiosk e agente telecamera avviati da `deploy\windows\avvia-regia.cmd` e
+`avvia-poltrona.cmd`. I dettagli sono nel README (*Deploy in studio*) e nella versione precedente
+di questa guida nella cronologia del repository.
