@@ -9,7 +9,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "dist:win": "npm install --no-save --force @koromix/koffi-win32-x64@3.3.0 && electron-builder --win nsis --x64",
+    "dist:win": "node scripts/check-bridge.js && npm install --no-save --force @koromix/koffi-win32-x64@3.3.0 && electron-builder --win nsis --x64",
     "dist:dir": "electron-builder --dir"
   },
   "dependencies": {
@@ -75,6 +75,17 @@
     },
     "toolsets": {
       "nsis": "1.2.1"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "../../agent/native",
+        "to": "native",
+        "filter": [
+          "obsbot_bridge.dll",
+          "libdev.dll",
+          "w32-pthreads.dll"
+        ]
+      }
+    ]
   }
 }
