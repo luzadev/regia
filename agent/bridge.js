@@ -20,7 +20,13 @@ function libraryPath(dir) {
 
 function loadBridge(options = {}) {
   const koffi = require('koffi');
-  const lib = koffi.load(options.path || libraryPath(options.dir));
+  const file = options.path || libraryPath(options.dir);
+  // Windows looks for a DLL's own dependencies (libdev.dll, w32-pthreads.dll)
+  // next to the executable and on PATH, not next to the DLL that needs them.
+  if (process.platform === 'win32') {
+    process.env.PATH = path.dirname(file) + path.delimiter + (process.env.PATH || '');
+  }
+  const lib = koffi.load(file);
 
   const fns = {
     init: lib.func('int ob_init(int wait_ms, int log_level)'),

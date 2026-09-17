@@ -17,7 +17,7 @@
  *
  * Usage:
  *   node camera-agent.js --server wss://192.168.10.10:8080/ws --station post-01
- *     [--token <control token>] [--ca certs/server.crt]
+ *     [--token <control token>] [--ca certs/server.crt] [--fingerprint AB:CD:...]
  */
 
 const fs = require('fs');
@@ -48,6 +48,7 @@ function createAgent(options) {
     settleMs = 1200,
     initWaitMs = 8000,
     safety = { aiOff: true, gesturesOff: true, keepAwake: true },
+    onReplaced = () => {},
     log = (...a) => console.log('[agente]', ...a)
   } = options;
 
@@ -249,6 +250,7 @@ function createAgent(options) {
       if (code === 4000) {
         log('un altro agente ha preso questa poltrona: mi fermo');
         stop();
+        onReplaced();
         return;
       }
       setTimeout(connect, backoff);
@@ -273,6 +275,23 @@ function createAgent(options) {
 
 /* ---------------------------------------------------------------------- */
 
+/**
+ * TLS options that accept exactly one certificate, identified by its SHA-256
+ * fingerprint, whatever address the server is reached at. The desktop station
+ * app pairs with the server this way instead of installing its certificate.
+ */
+function pinnedWsOptions(pem, fingerprint) {
+  const crypto = require('crypto');
+  const norm = (v) => String(v || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+  return {
+    ca: pem,
+    checkServerIdentity: (_host, cert) => {
+      const got = crypto.createHash('sha256').update(cert.raw).digest('hex');
+      return norm(got) === norm(fingerprint) ? undefined : new Error('certificato del server diverso da quello abbinato');
+    }
+  };
+}
+
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -286,11 +305,13 @@ if (require.main === module) {
   const url = args.server || process.env.REGIA_SERVER;
   const station = args.station || process.env.REGIA_STATION;
   if (!url || !station) {
-    console.error('uso: node camera-agent.js --server wss://<ip-server>:8080/ws --station post-01 [--token ...] [--ca certs/server.crt]');
+    console.error('uso: node camera-agent.js --server wss://<ip-server>:8080/ws --station post-01 [--token ...] [--ca certs/server.crt [--fingerprint AB:CD:...]]');
     process.exit(1);
   }
   const ca = args.ca || process.env.REGIA_CA;
-  const wsOptions = ca ? { ca: fs.readFileSync(ca) } : { rejectUnauthorized: false };
+  const pin = args.fingerprint || process.env.REGIA_FINGERPRINT;
+  const wsOptions = ca && pin ? pinnedWsOptions(fs.readFileSync(ca), pin)
+    : ca ? { ca: fs.readFileSync(ca) } : { rejectUnauthorized: false };
   if (!ca && url.startsWith('wss:')) {
     console.warn('[agente] nessun --ca: accetto il certificato del server senza verificarlo (solo LAN chiusa)');
   }
@@ -302,7 +323,9 @@ if (require.main === module) {
     url,
     station,
     token: args.token || process.env.REGIA_TOKEN || null,
-    wsOptions
+    wsOptions,
+    // Exit code 3 tells a supervisor not to restart us into a tug of war.
+    onReplaced: () => process.exit(3)
   });
   agent.start();
   const quit = () => {
@@ -311,6 +334,10 @@ if (require.main === module) {
   };
   process.on('SIGINT', quit);
   process.on('SIGTERM', quit);
+  // Started by the station app: it asks over IPC (Windows has no SIGTERM to catch).
+  process.on('message', (m) => {
+    if (m && m.type === 'shutdown') quit();
+  });
 }
 
-module.exports = { createAgent, LIMITS, TRACKING };
+module.exports = { createAgent, pinnedWsOptions, LIMITS, TRACKING };
