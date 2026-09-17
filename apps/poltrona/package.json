@@ -10,7 +10,8 @@
     "start": "electron .",
     "test": "node --test test/*.test.js",
     "dist:win": "node scripts/check-bridge.js && npm install --no-save --force @koromix/koffi-win32-x64@3.3.0 && electron-builder --win nsis --x64",
-    "dist:dir": "electron-builder --dir"
+    "dist:dir": "electron-builder --dir",
+    "dist:mac": "electron-builder --mac dir --arm64 -c.mac.identity=null -c.directories.output=dist-mac"
   },
   "dependencies": {
     "koffi": "^3.3.0",
@@ -85,7 +86,11 @@
         "filter": [
           "obsbot_bridge.dll",
           "libdev.dll",
-          "w32-pthreads.dll"
+          "w32-pthreads.dll",
+          "obsbot_bridge.dylib",
+          "libdev.dylib",
+          "obsbot_bridge.so",
+          "libdev.so"
         ]
       }
     ]
