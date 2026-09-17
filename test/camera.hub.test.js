@@ -169,12 +169,36 @@ test('choosing a tracking mode is saved and sent to the camera', () => {
   assert.equal(studio.snapshot().stations.find((s) => s.id === 'post-01').tracking, 'off');
 });
 
-test('the tracking mode is never changed on air', () => {
+test('on air the framing mode changes only with an explicit confirmation', () => {
   const { studio, hub } = setup();
   const agent = fakeSocket();
   hub.addAgent(agent, 'post-01');
   studio.grant('post-01');
+
+  // A stray click must not change the picture on the mixer.
   assert.equal(hub.setTracking('post-01', 'normal').code, 'is_live');
+  assert.deepEqual(agent.sent, []);
+
+  // The guest has to stand up: the operator confirms, the camera follows them.
+  assert.deepEqual(hub.setTracking('post-01', 'normal', { onAir: true }), { ok: true });
+  const cmd = agent.sent.pop();
+  assert.deepEqual([cmd.cmd, cmd.mode], ['tracking', 'normal']);
+
+  // Back to fixed once seated again, still on air.
+  assert.deepEqual(hub.setTracking('post-01', 'off', { onAir: true }), { ok: true });
+  assert.equal(agent.sent.pop().mode, 'off');
+});
+
+test('arrows and zoom stay preview-only, even after a confirmed change on air', () => {
+  const { studio, hub } = setup();
+  const agent = fakeSocket();
+  hub.addAgent(agent, 'post-01');
+  studio.grant('post-01');
+  hub.setTracking('post-01', 'off', { onAir: true });
+  agent.sent.length = 0;
+
+  assert.equal(hub.command('post-01', { cmd: 'nudge', dpitch: 2 }).code, 'is_live');
+  assert.equal(hub.command('post-01', { cmd: 'zoom', dzoom: 0.2 }).code, 'is_live');
   assert.deepEqual(agent.sent, []);
 });
 

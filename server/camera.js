@@ -144,23 +144,26 @@ class CameraHub {
 
   /**
    * Chooses how a station's camera frames its guest. Saved in config.json and
-   * put back whenever the camera comes online. Never changed on air: switching
-   * to tracking moves the picture.
+   * put back whenever the camera comes online. On air only with an explicit
+   * confirmation (`onAir`), because switching tracking moves the picture.
    */
-  setTracking(stationId, mode) {
+  setTracking(stationId, mode, options = {}) {
     const st = this.studio.get(stationId);
     if (!st) return { ok: false, code: 'unknown_station', message: `Poltrona sconosciuta: ${stationId}` };
     if (!TRACKING_MODES.includes(mode)) {
       return { ok: false, code: 'bad_tracking', message: `Modo di inquadratura sconosciuto: ${mode}` };
     }
-    if (st.state === 'LIVE') {
-      return { ok: false, code: 'is_live', message: 'Poltrona in onda: il modo di inquadratura non si cambia in onda.' };
+    // On air the change shows on the mixer: allowed only when the operator
+    // confirmed it explicitly (a guest who has to stand up, move, sit back).
+    // Arrows and zoom stay preview-only regardless.
+    if (st.state === 'LIVE' && !options.onAir) {
+      return { ok: false, code: 'is_live', message: 'Poltrona in onda: conferma il cambio di inquadratura in onda.' };
     }
 
     if (mode === 'off') delete st.config.tracking;
     else st.config.tracking = mode;
     const saved = this.saveConfig();
-    this.log.event('camera_tracking', { station: stationId, tracking: mode, saved: saved.ok });
+    this.log.event('camera_tracking', { station: stationId, tracking: mode, on_air: st.state === 'LIVE', saved: saved.ok });
 
     // With no agent connected the choice still counts: it applies when the camera comes online.
     const ws = this.sockets.get(stationId);

@@ -245,9 +245,16 @@ poltrona:
 | **Mezzo busto** | segue l'ospite inquadrandolo a mezzo busto |
 | **Primo piano** | segue l'ospite in primo piano |
 
-La scelta viene salvata e rimessa quando la telecamera riparte. **Non si cambia in onda**, e
-mentre il tracking è attivo frecce, zoom e «Salva inquadratura» sono disattivati: il primo
-movimento manuale spegnerebbe il tracking nella telecamera, e i due comandi si contraddirebbero.
+La scelta viene salvata e rimessa quando la telecamera riparte. Mentre il tracking è attivo
+frecce, zoom e «Salva inquadratura» sono disattivati: il primo movimento manuale spegnerebbe il
+tracking nella telecamera, e i due comandi si contraddirebbero.
+
+**In onda**, se l'ospite deve alzarsi o spostarsi: nel pannello «In onda» compare il riquadro
+rosso **Inquadratura in onda** con gli stessi quattro modi. Il cambio si vede sul mixer, quindi
+va **toccato due volte**: il primo tocco mostra «Confermi?», il secondo (entro 4 secondi) lo
+applica. Il flusso tipico è «Segue l'ospite» mentre si muove, poi «Fissa» quando si è rimesso a
+posto: tornando a Fissa la telecamera resta dove si trova, senza scatti. Frecce e zoom in onda
+non ci sono, per scelta.
 
 Da sapere prima di usarlo in diretta: con il tracking l'inquadratura si muove da sola quando
 l'ospite si muove. Per un ospite seduto la scelta prudente resta «Fissa».

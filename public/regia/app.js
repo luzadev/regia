@@ -88,6 +88,36 @@
       if (previewing) bridge.send({ type: 'camera_tracking', station: previewing, mode: b.dataset.track });
     });
   });
+  // On air: first click arms, second click (within 4 s) confirms.
+  var airArmed = null;
+  var airTimer = null;
+  function disarmAir() {
+    airArmed = null;
+    clearTimeout(airTimer);
+    document.querySelectorAll('#air-tracking [data-air-track]').forEach(function (b) {
+      b.classList.remove('confirm');
+      b.textContent = b.dataset.label || b.textContent;
+    });
+  }
+  document.querySelectorAll('#air-tracking [data-air-track]').forEach(function (b) {
+    b.dataset.label = b.textContent;
+    b.addEventListener('click', function () {
+      var live = liveStation();
+      if (!live || previewing) return;
+      if (b.getAttribute('aria-checked') === 'true') return;
+      if (airArmed === b.dataset.airTrack) {
+        disarmAir();
+        bridge.send({ type: 'camera_tracking', station: live.id, mode: b.dataset.airTrack, on_air: true });
+        return;
+      }
+      disarmAir();
+      airArmed = b.dataset.airTrack;
+      b.classList.add('confirm');
+      b.textContent = 'Confermi?';
+      airTimer = setTimeout(disarmAir, 4000);
+    });
+  });
+
   document.getElementById('cam-save').addEventListener('click', function () {
     if (previewing) bridge.send({ type: 'camera_save_framing', station: previewing });
   });
@@ -253,6 +283,24 @@
     }
     tag.hidden = !watched && !previewing;
     renderCameraBar(previewing ? watched : null);
+    renderAirTracking(previewing ? null : watched);
+  }
+
+  /** Framing mode for the station on air, when it has a camera agent. */
+  function renderAirTracking(live) {
+    var box = document.getElementById('air-tracking');
+    var cam = live && live.camera;
+    box.hidden = !live || live.state !== 'LIVE' || !cam || !cam.connected;
+    if (box.hidden) {
+      if (airArmed) disarmAir();
+      return;
+    }
+    var tracking = live.tracking || 'off';
+    var usable = cam.ok && !!cam.state;
+    box.querySelectorAll('[data-air-track]').forEach(function (b) {
+      b.setAttribute('aria-checked', String(b.dataset.airTrack === tracking));
+      b.disabled = !usable;
+    });
   }
 
   function renderCameraBar(station) {

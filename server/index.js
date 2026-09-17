@@ -741,7 +741,7 @@ function handleControlMessage(ws, msg) {
       return;
     }
     case 'camera_tracking': {
-      const res = cameraHub.setTracking(msg.station, msg.mode);
+      const res = cameraHub.setTracking(msg.station, msg.mode, { onAir: msg.on_air === true });
       if (!res.ok) sendError(ws, res.code, res.message);
       return;
     }

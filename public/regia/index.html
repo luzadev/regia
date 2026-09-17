@@ -74,6 +74,18 @@
         <div id="cam-info" class="cam-info"></div>
       </div>
     </div>
+    <!-- Framing mode of the station ON AIR: a visible change, so every click
+         needs a second confirming click. No arrows or zoom here. -->
+    <div id="air-tracking" class="air-tracking" hidden>
+      <div class="air-tracking-title">Inquadratura in onda</div>
+      <div class="cam-tracking" role="radiogroup" aria-label="Inquadratura in onda">
+        <button type="button" data-air-track="off" role="radio">Fissa</button>
+        <button type="button" data-air-track="normal" role="radio">Segue l'ospite</button>
+        <button type="button" data-air-track="upper" role="radio">Mezzo busto</button>
+        <button type="button" data-air-track="closeup" role="radio">Primo piano</button>
+      </div>
+      <div class="air-tracking-note">Il cambio si vede sul mixer: tocca due volte per confermare.</div>
+    </div>
     <div id="camera-hint" class="camera-hint" hidden></div>
     <div id="live-none" class="empty">Scegli «Guarda» su una poltrona per vederla prima di mandarla in onda.</div>
     <div id="live-box" hidden>
