@@ -1,7 +1,7 @@
 {
   "name": "regia-poltrona",
   "productName": "Regia Poltrona",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Regia - app della poltrona ospite: pagina a schermo intero e agente telecamera",
   "author": "Luza Dev <luciano@zappacosta.eu>",
