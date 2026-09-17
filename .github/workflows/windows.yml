@@ -1,0 +1,99 @@
+# Windows build: compiles the OBSBOT camera bridge with MSVC and builds both
+# installers. The OBSBOT SDK is proprietary and not in the repository: its
+# Windows part is an asset of a private *draft* release, which only the
+# workflow token (and repository members) can read.
+#
+# Manual run: artifacts only. Tag v*: artifacts plus a draft release to review
+# and publish.
+
+name: windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  SDK_RELEASE: SDK OBSBOT 2.1.0 per Windows (solo build)
+  SDK_ASSET: obsbot-sdk-windows-2.1.0.zip
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download the OBSBOT SDK (Windows part)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/releases" --paginate \
+            -q ".[] | select(.name == \"$SDK_RELEASE\") | .assets[] | select(.name == \"$SDK_ASSET\") | .id" | head -1)
+          test -n "$id" || { echo "asset $SDK_ASSET non trovato"; exit 1; }
+          gh api "repos/${{ github.repository }}/releases/assets/$id" -H "Accept: application/octet-stream" > sdk.zip
+          mkdir -p "$RUNNER_TEMP/obsbot"
+          unzip -q sdk.zip -d "$RUNNER_TEMP/obsbot"
+          rm sdk.zip
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build the camera bridge
+        shell: cmd
+        run: |
+          set OBSBOT_SDK_DIR=%RUNNER_TEMP%\obsbot\libdev_v2.1.0_8
+          call agent\bridge\build.cmd || exit /b 1
+          dir agent\native
+
+      - name: Check the bridge loads (no camera on the runner)
+        shell: bash
+        run: |
+          cd agent && npm ci
+          node -e "
+            const { loadBridge } = require('./bridge');
+            const b = loadBridge({ dir: 'native' });
+            b.init(1500).then((r) => {
+              console.log('ob_init senza telecamera:', JSON.stringify(r));
+              process.exit(0);
+            });
+          "
+
+      - name: Control room installer
+        working-directory: apps/regia
+        run: |
+          npm ci
+          npx electron-builder --win nsis --x64 --publish never
+
+      - name: Station installer (bridge included)
+        working-directory: apps/poltrona
+        run: |
+          npm ci
+          npm run dist:win -- --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-windows
+          path: |
+            apps/regia/dist/*.exe
+            apps/poltrona/dist/*.exe
+          if-no-files-found: error
+
+      - name: Draft release for the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --draft --verify-tag \
+            --title "Regia ${GITHUB_REF_NAME#v} — app Windows" \
+            --notes "Build automatica: controllare e pubblicare." \
+            apps/regia/dist/*.exe apps/poltrona/dist/*.exe

@@ -314,7 +314,7 @@
     hint.hidden = !(station && station.state !== 'LIVE' && (!cam || !cam.connected));
     if (!hint.hidden) {
       hint.textContent = 'Comandi telecamera non disponibili per ' + (station.name || station.label) +
-        ': nessun agente telecamera collegato su quella poltrona (vedi agent/README.md).';
+        ': nessun agente telecamera collegato su quella poltrona (app poltrona senza ponte OBSBOT, telecamera scollegata, o agente fermo: vedi logs\\agent.log sulla poltrona).';
     }
     if (bar.hidden) return;
 
