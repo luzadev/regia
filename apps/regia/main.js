@@ -32,6 +32,7 @@ const { createSupervisor } = require('../common/supervisor');
 const DATA = app.getPath('userData');
 const LOG_DIR = path.join(DATA, 'logs');
 const PREFS_FILE = path.join(DATA, 'app.json');
+const ICON = path.join(__dirname, 'build', 'icon.png');
 
 let prefs = { feed_display: null, autostart: true };
 let config = null;
@@ -130,6 +131,7 @@ async function showServerFailure({ lastMessage }) {
   const { response } = await dialog.showMessageBox({
     type: 'error',
     title: 'Regia',
+    icon: ICON,
     message: 'Il server Regia non si avvia',
     detail,
     buttons: ['Riprova', 'Apri cartella dati', 'Esci'],
@@ -199,6 +201,7 @@ function createDashboard() {
     show: false,
     backgroundColor: '#0b0d10',
     title: 'Regia',
+    icon: ICON,
     webPreferences: { backgroundThrottling: false }
   });
   dashboard.maximize();
@@ -236,6 +239,7 @@ function feedWindowOptions(bounds) {
     skipTaskbar: true,
     backgroundColor: '#000000',
     title: 'Regia · Feed',
+    icon: ICON,
     webPreferences: { backgroundThrottling: false }
   };
 }

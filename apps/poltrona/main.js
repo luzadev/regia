@@ -124,6 +124,7 @@ function createWindow() {
     autoHideMenuBar: true,
     backgroundColor: '#0b0d10',
     title: 'Regia · Poltrona',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

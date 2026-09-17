@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f252d"/>
+      <stop offset="1" stop-color="#0b0d10"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ff6b6b"/>
+      <stop offset="1" stop-color="#e01e1e"/>
+    </radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bg)"/>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="none" stroke="#2a323c" stroke-width="8"/>
+  <!-- monitor -->
+  <rect x="172" y="250" width="680" height="440" rx="56" fill="#0b0d10" stroke="#f2f5f8" stroke-width="40"/>
+  <rect x="432" y="700" width="160" height="70" fill="#f2f5f8"/>
+  <rect x="332" y="760" width="360" height="44" rx="22" fill="#f2f5f8"/>
+  <!-- on air -->
+  <circle cx="512" cy="470" r="112" fill="url(#dot)"/>
+  <path d="M352 360 a226 226 0 0 0 0 220" fill="none" stroke="#ff2d2d" stroke-width="30" stroke-linecap="round" opacity=".85"/>
+  <path d="M672 360 a226 226 0 0 1 0 220" fill="none" stroke="#ff2d2d" stroke-width="30" stroke-linecap="round" opacity=".85"/>
+</svg>

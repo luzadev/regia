@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f252d"/>
+      <stop offset="1" stop-color="#0b0d10"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ff6b6b"/>
+      <stop offset="1" stop-color="#e01e1e"/>
+    </radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bg)"/>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="none" stroke="#2a323c" stroke-width="8"/>
+  <!-- armchair -->
+  <g fill="#f2f5f8">
+    <rect x="322" y="380" width="380" height="300" rx="70"/>
+    <rect x="212" y="520" width="140" height="250" rx="60"/>
+    <rect x="672" y="520" width="140" height="250" rx="60"/>
+    <rect x="292" y="640" width="440" height="130" rx="40"/>
+    <rect x="282" y="770" width="50" height="90" rx="20"/>
+    <rect x="692" y="770" width="50" height="90" rx="20"/>
+  </g>
+  <rect x="352" y="600" width="320" height="30" rx="15" fill="#0b0d10" opacity=".35"/>
+  <!-- on air light -->
+  <circle cx="512" cy="230" r="92" fill="url(#dot)"/>
+  <path d="M372 170 a160 160 0 0 0 0 120" fill="none" stroke="#ff2d2d" stroke-width="26" stroke-linecap="round" opacity=".85"/>
+  <path d="M652 170 a160 160 0 0 1 0 120" fill="none" stroke="#ff2d2d" stroke-width="26" stroke-linecap="round" opacity=".85"/>
+</svg>
