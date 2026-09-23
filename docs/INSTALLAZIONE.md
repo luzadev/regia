@@ -133,7 +133,8 @@ Dati e registri in `%APPDATA%\Regia Poltrona\` (`pairing.json`, `logs\app.log`,
 `logs\agent.log`).
 
 ### 2.3 Telecamera
-Il ponte OBSBOT è dentro l'app. In `%APPDATA%\Regia Poltrona\logs\agent.log` deve comparire:
+Il ponte OBSBOT è dentro l'app, insieme al runtime C++ Microsoft che l'SDK richiede (dalla 1.0.2:
+sulle poltrone non serve installare il *Visual C++ Redistributable*). In `%APPDATA%\Regia Poltrona\logs\agent.log` deve comparire:
 ```
 [agente] telecamera trovata: Tiny 2 Lite sn … firmware …
 [agente] regole di sicurezza: tracking AI spento:ok, gesti spenti:ok
@@ -199,6 +200,7 @@ prenderla serve un secondo tocco, ed è giusto così solo se stai sostituendo qu
 | Il server ha cambiato IP | `Ctrl+Maiusc+F12` su ogni poltrona e nuovo indirizzo; l'impronta resta la stessa |
 | Badge **cam !** ambra | telecamera o microfono OBSBOT non trovati, o accesso negato in *Privacy → Fotocamera* |
 | Nessun badge **ptz** | agente fermo o telecamera non trovata: guarda `logs\agent.log` della poltrona |
+| `Failed to load shared library: Impossibile trovare il modulo specificato` | app precedente alla 1.0.2: manca il runtime C++ accanto al ponte. Aggiorna la poltrona |
 | «POLTRONA APERTA ALTROVE» | la stessa poltrona è aperta anche su un altro computer o in un browser |
 | Banner rosso «nessun ricevitore feed» | nessun secondo schermo collegato al server, o feed chiuso: menu **Feed** |
 | Audio del feed muto | uscita audio di Windows non impostata sull'HDMI del mixer |
