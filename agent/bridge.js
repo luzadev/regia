@@ -18,14 +18,28 @@ function libraryPath(dir) {
   return path.join(dir || path.join(__dirname, 'native'), name);
 }
 
+/**
+ * Windows looks for a DLL's dependencies next to the *executable* and on PATH,
+ * not next to the DLL that needs them. The bridge folder holds libdev.dll,
+ * w32-pthreads.dll and the Microsoft C++ runtime they need, so it has to be
+ * part of the search: SetDllDirectory does it for the whole process, and PATH
+ * is the fallback if that call is not available.
+ */
+function addWindowsSearchPath(koffi, dir) {
+  process.env.PATH = dir + path.delimiter + (process.env.PATH || '');
+  try {
+    const kernel32 = koffi.load('kernel32.dll');
+    const setDllDirectory = kernel32.func('int __stdcall SetDllDirectoryW(str16 path)');
+    setDllDirectory(dir);
+  } catch {
+    /* PATH alone, then */
+  }
+}
+
 function loadBridge(options = {}) {
   const koffi = require('koffi');
   const file = options.path || libraryPath(options.dir);
-  // Windows looks for a DLL's own dependencies (libdev.dll, w32-pthreads.dll)
-  // next to the executable and on PATH, not next to the DLL that needs them.
-  if (process.platform === 'win32') {
-    process.env.PATH = path.dirname(file) + path.delimiter + (process.env.PATH || '');
-  }
+  if (process.platform === 'win32') addWindowsSearchPath(koffi, path.dirname(file));
   const lib = koffi.load(file);
 
   const fns = {

@@ -53,6 +53,7 @@ jobs:
           set OBSBOT_SDK_DIR=%RUNNER_TEMP%\obsbot\libdev_v2.1.0_8
           call agent\bridge\build.cmd || exit /b 1
           dir agent\native
+          dumpbin /nologo /dependents agent\native\obsbot_bridge.dll
 
       - name: Check the bridge loads (no camera on the runner)
         shell: bash

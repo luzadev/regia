@@ -1,7 +1,7 @@
 {
   "name": "regia-poltrona",
   "productName": "Regia Poltrona",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Regia - app della poltrona ospite: pagina a schermo intero e agente telecamera",
   "author": "Luza Dev <luciano@zappacosta.eu>",
@@ -87,6 +87,9 @@
           "obsbot_bridge.dll",
           "libdev.dll",
           "w32-pthreads.dll",
+          "msvcp140.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
           "obsbot_bridge.dylib",
           "libdev.dylib",
           "obsbot_bridge.so",

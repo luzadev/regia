@@ -13,16 +13,19 @@ const fs = require('fs');
 const path = require('path');
 
 const DIR = path.resolve(__dirname, '..', '..', '..', 'agent', 'native');
-const FILES = ['obsbot_bridge.dll', 'libdev.dll', 'w32-pthreads.dll'];
+// The Microsoft C++ runtime travels with the bridge: libdev.dll needs it and a
+// fresh Windows does not have it (see agent/bridge/build.cmd).
+const FILES = ['obsbot_bridge.dll', 'libdev.dll', 'w32-pthreads.dll',
+  'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'];
 
 const missing = FILES.filter((f) => !fs.existsSync(path.join(DIR, f)));
 if (!missing.length) {
-  console.log(`ponte OBSBOT incluso: ${FILES.join(', ')} da ${DIR}`);
+  console.log(`ponte OBSBOT e runtime C++ inclusi: ${FILES.join(', ')} da ${DIR}`);
 } else if (process.env.REGIA_ALLOW_NO_BRIDGE === '1') {
   console.warn(`ATTENZIONE: installer senza ponte OBSBOT (mancano ${missing.join(', ')}): niente controlli telecamera`);
 } else {
   console.error(`Mancano in ${DIR}: ${missing.join(', ')}`);
-  console.error('Compila il ponte su Windows con agent\\bridge\\build.cmd (vedi docs/INSTALLAZIONE.md) e copia qui i tre file.');
+  console.error('Compila il ponte su Windows con agent\\bridge\\build.cmd (vedi docs/INSTALLAZIONE.md) e copia qui i file elencati.');
   console.error('Per un installer senza controlli telecamera: REGIA_ALLOW_NO_BRIDGE=1');
   process.exit(1);
 }

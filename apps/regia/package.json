@@ -1,7 +1,7 @@
 {
   "name": "regia-app",
   "productName": "Regia",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Regia - app della regia: server, dashboard e feed pulito verso il mixer",
   "author": "Luza Dev <luciano@zappacosta.eu>",

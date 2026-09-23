@@ -292,6 +292,15 @@ function pinnedWsOptions(pem, fingerprint) {
   };
 }
 
+/** Stands in for a bridge that could not be loaded: every call fails, with the reason. */
+function brokenBridge(error) {
+  const fail = async () => ({ ok: false, code: -1, error });
+  return {
+    init: fail, info: fail, getState: fail, aiOff: fail, setAiMode: fail,
+    wake: fail, setAngle: fail, setZoom: fail, setGestures: fail
+  };
+}
+
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -317,8 +326,18 @@ if (require.main === module) {
   }
 
   const { loadBridge } = require('./bridge');
+  // A bridge that cannot load (missing DLL, wrong build) must reach the control
+  // room as a camera error, not as a crash the station app restarts forever.
+  let bridge;
+  try {
+    bridge = loadBridge({ dir: args.native });
+  } catch (e) {
+    const error = 'ponte telecamera non caricabile: ' + e.message;
+    console.error('[agente]', error);
+    bridge = brokenBridge(error);
+  }
   const agent = createAgent({
-    bridge: loadBridge({ dir: args.native }),
+    bridge,
     WebSocketImpl: require('ws'),
     url,
     station,
